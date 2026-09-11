@@ -1,10 +1,10 @@
-package co.edu.unbosque.kronos;
+package co.edu.unbosque.sdgh;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class KronosApplicationTests {
+class SdghApplicationTests {
 
 	@Test
 	void contextLoads() {

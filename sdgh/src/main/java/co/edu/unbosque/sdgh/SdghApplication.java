@@ -1,13 +1,13 @@
-package co.edu.unbosque.kronos;
+package co.edu.unbosque.sdgh;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class KronosApplication {
+public class SdghApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(KronosApplication.class, args);
+		SpringApplication.run(SdghApplication.class, args);
 	}
 
 }
