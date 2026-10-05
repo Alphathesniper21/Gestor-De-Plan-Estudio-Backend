@@ -1,45 +1,62 @@
+/**
+ * Paquete que contiene los servicios del aplicativo.
+ */
 package co.edu.unbosque.sdgh.service;
 
 import java.util.List;
 
 /**
- * Interfaz genérica que define las operaciones básicas de CRUD (Create, Read, Update, Delete)
- * para cualquier tipo de entidad o DTO en la capa de servicio del proyecto SDGH.
+ * Interfaz que permite definir las operaciones CRUD.
  *
- * @param <T> el tipo de dato que maneja el servicio (entidad JPA o DTO)
- * @param <ID> el tipo de dato del identificador único de la entidad
+ * @param <T> Tipo de entidad (o DTO) sobre el que se realizaran las operaciones.
  */
-public interface CRUDOperation<T, ID> {
+public interface CRUDOperation<T> {
 
-    /**
-     * Crea un nuevo registro.
-     *
-     * @param data el objeto a crear
-     * @return número de filas afectadas (1 éxito, 0 fallo)
-     */
-    public int create(T data);
+	/**
+	 * Metodo que permite crear una nueva entidad.
+	 *
+	 * @param data La entidad a crear.
+	 * @return Codigo de resultado de la operacion.
+	 */
+	public int create(T data);
 
-    /**
-     * Obtiene todos los registros existentes.
-     *
-     * @return lista completa de los elementos
-     */
-    public List<T> getAll();
+	/**
+	 * Metodo que permite obtener todas las entidades.
+	 *
+	 * @return Lista con todas las entidades.
+	 */
+	public List<T> getAll();
 
-    /**
-     * Elimina un registro por su identificador único.
-     *
-     * @param id el ID del registro a eliminar
-     * @return número de filas afectadas (1 éxito, 0 fallo)
-     */
-    public int delateById(ID id);
+	/**
+	 * Metodo que permite eliminar una entidad por su ID.
+	 *
+	 * @param id ID de la entidad a eliminar.
+	 * @return Codigo de resultado de la operacion.
+	 */
+	public int deleteById(Integer id);
 
-    /**
-     * Actualiza un registro existente.
-     *
-     * @param id   el ID del registro a actualizar
-     * @param data el objeto con los datos actualizados
-     * @return número de filas afectadas (1 éxito, 0 fallo)
-     */
-    public int updateById(ID id, T data);
+	/**
+	 * Metodo que permite actualizar entidades por su ID.
+	 *
+	 * @param id      ID de la entidad a actualizar.
+	 * @param newData Nuevos datos para la entidad.
+	 * @return Codigo de resultado de la operacion.
+	 */
+	public int updateById(Integer id, T newData);
+
+	/**
+	 * Metodo que permite contar la cantidad total de entidades.
+	 *
+	 * @return Numero total de entidades.
+	 */
+	public long count();
+
+	/**
+	 * Metodo que permite verificar la existencia de una entidad a partir de su ID.
+	 *
+	 * @param id ID de la entidad a verificar.
+	 * @return true si existe, false en caso contrario.
+	 */
+	public boolean exist(Integer id);
+
 }
