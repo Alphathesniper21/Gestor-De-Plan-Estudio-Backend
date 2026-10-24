@@ -2,9 +2,17 @@ package co.edu.unbosque.sdgh.entity;
 
 import java.util.Objects;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "espacios_conocimiento")
 public class EspacioConocimiento {
 
+    @Id
     private int id;
+
     private String nombre;              // "Personas", "Software", "Información", etc.
     private String descripcion;
 
@@ -17,7 +25,6 @@ public class EspacioConocimiento {
         this.descripcion = descripcion;
     }
 
-   
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 

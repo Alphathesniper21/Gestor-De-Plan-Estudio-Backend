@@ -19,6 +19,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 
+@org.springframework.stereotype.Component
 public class JwtUtil {
 	private static final Logger log = LoggerFactory.getLogger(JwtUtil.class);
 

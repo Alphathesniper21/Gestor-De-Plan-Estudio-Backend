@@ -2,9 +2,17 @@ package co.edu.unbosque.sdgh.entity;
 
 import java.util.Objects;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "etapas_formacion")
 public class EtapaFormacion {
 
+    @Id
     private int numero;                 // 1, 2 o 3
+
     private String nombre;              // "Inmersión a la vida universitaria", etc.
     private String meta;                // La meta declarada en el PEP
     private int semestreInicio;

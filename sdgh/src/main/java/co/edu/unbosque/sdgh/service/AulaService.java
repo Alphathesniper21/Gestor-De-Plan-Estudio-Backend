@@ -218,6 +218,7 @@ public class AulaService implements CRUDOperation<AulaDTO> {
 			return null;
 		}
 		return new AulaDTO(
+				entity.getId(),
 				entity.getCapacidad(),
 				entity.isTieneSillasMovibles(),
 				entity.isTieneComputadores()
@@ -234,11 +235,15 @@ public class AulaService implements CRUDOperation<AulaDTO> {
 		if (dto == null) {
 			return null;
 		}
-		return new Aula(
+		Aula entity = new Aula(
 				dto.getCapacidad(),
 				dto.isTieneSillasMovibles(),
 				dto.isTieneComputadores()
 		);
+		if (dto.getId() != null) {
+			entity.setId(dto.getId());
+		}
+		return entity;
 	}
 
 }
