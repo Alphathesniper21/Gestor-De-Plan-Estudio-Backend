@@ -1,9 +1,13 @@
 package co.edu.unbosque.sdgh.security;
 
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.stereotype.Service;
+import co.edu.unbosque.sdgh.repository.UsuarioRepository;
 
-public class UserDetailsServiceImpl {
+@Service
+public class UserDetailsServiceImpl implements UserDetailsService{
 	/**
 	 * Repositorio de usuarios para la consulta en base de datos.
 	 */
