@@ -16,6 +16,14 @@ import co.edu.unbosque.sdgh.entity.Usuario;
 public interface UsuarioRepository extends CrudRepository<Usuario, Integer> {
 
 	/**
+	 * Busca un usuario por su nombre de usuario (credencial de login).
+	 *
+	 * @param username El nombre de usuario a buscar.
+	 * @return Un Optional con el usuario si existe.
+	 */
+	Optional<Usuario> findByUsername(String username);
+	
+	/**
 	 * Busca un usuario por su correo electronico.
 	 *
 	 * @param correo El correo a buscar.

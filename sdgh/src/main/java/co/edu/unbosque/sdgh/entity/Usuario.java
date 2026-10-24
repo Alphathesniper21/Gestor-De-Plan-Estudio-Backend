@@ -1,13 +1,19 @@
 package co.edu.unbosque.sdgh.entity;
 
+import java.util.Collection;
 import java.util.Objects;
 
-public class Usuario {
+import org.jspecify.annotations.Nullable;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+public class Usuario implements UserDetails{
 	
 	private String nombre;
 	private int codigo;
 	private String correo;
 	private String facultad;
+	
 	public Usuario() {
 		super();
 		// TODO Auto-generated constructor stub
@@ -63,6 +69,21 @@ public class Usuario {
 		Usuario other = (Usuario) obj;
 		return codigo == other.codigo && Objects.equals(correo, other.correo)
 				&& Objects.equals(facultad, other.facultad) && Objects.equals(nombre, other.nombre);
+	}
+	@Override
+	public Collection<? extends GrantedAuthority> getAuthorities() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	@Override
+	public @Nullable String getPassword() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	@Override
+	public String getUsername() {
+		// TODO Auto-generated method stub
+		return null;
 	}	
 	
 
