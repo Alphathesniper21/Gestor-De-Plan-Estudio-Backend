@@ -255,5 +255,4 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 				dto.getFacultad() != null ? dto.getFacultad().trim() : null
 		);
 	}
-
 }
