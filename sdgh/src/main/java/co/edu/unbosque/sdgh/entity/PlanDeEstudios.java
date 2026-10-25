@@ -4,18 +4,49 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "planes_de_estudio")
 public class PlanDeEstudios {
 
+    @Id
     private String id;
+
     private String nombrePrograma;          
     private String version;                 
     private int totalCreditos;              
     private int numeroSemestres;           
 
-   
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "plan_etapas",
+        joinColumns = @JoinColumn(name = "plan_id"),
+        inverseJoinColumns = @JoinColumn(name = "etapa_numero")
+    )
     private List<EtapaFormacion> etapas;    
+
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "plan_espacios",
+        joinColumns = @JoinColumn(name = "plan_id"),
+        inverseJoinColumns = @JoinColumn(name = "espacio_id")
+    )
     private List<EspacioConocimiento> espaciosConocimiento; 
     
+    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "plan_materias",
+        joinColumns = @JoinColumn(name = "plan_id"),
+        inverseJoinColumns = @JoinColumn(name = "materia_codigo")
+    )
     private List<Materia> materias;
 
     public PlanDeEstudios() {
@@ -29,8 +60,6 @@ public class PlanDeEstudios {
         this.id = id;
         this.nombrePrograma = nombrePrograma;
     }
-
-  
 
     public String getId() {
 		return id;
@@ -125,6 +154,5 @@ public class PlanDeEstudios {
 				&& Objects.equals(nombrePrograma, other.nombrePrograma) && numeroSemestres == other.numeroSemestres
 				&& totalCreditos == other.totalCreditos && Objects.equals(version, other.version);
 	}
-
  
 }

@@ -2,15 +2,20 @@ package co.edu.unbosque.sdgh.entity;
 
 import java.util.Objects;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "estudiantes")
+@PrimaryKeyJoinColumn(name = "usuario_codigo")
 public class Estudiante extends Usuario {
 
-    
     private int semestreActual;
     private boolean estado;                    
     private String programaAcademico;          
     private String modalidad;                 
     private double promedioAcumulado;
-
 
     private String tipoDocumento;              
     private String numeroDocumento;
@@ -20,12 +25,10 @@ public class Estudiante extends Usuario {
     private String afiliacionEPS;              
     private boolean esquemaVacunacionCompleto; 
 
-
     private boolean esExtranjero;
     private boolean tieneVisaVigente;
     private String resolucionConvalidacion;   
 
-   
     public Estudiante() {
         super();
     }

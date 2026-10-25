@@ -4,6 +4,8 @@ import java.util.Objects;
 
 public class AulaDTO {
 
+	private Integer id;
+
 	private int capacidad;
 
 	private boolean tieneSillasMovibles;
@@ -18,6 +20,22 @@ public class AulaDTO {
 		this.capacidad = capacidad;
 		this.tieneSillasMovibles = tieneSillasMovibles;
 		this.tieneComputadores = tieneComputadores;
+	}
+
+	public AulaDTO(Integer id, int capacidad, boolean tieneSillasMovibles, boolean tieneComputadores) {
+		super();
+		this.id = id;
+		this.capacidad = capacidad;
+		this.tieneSillasMovibles = tieneSillasMovibles;
+		this.tieneComputadores = tieneComputadores;
+	}
+
+	public Integer getId() {
+		return id;
+	}
+
+	public void setId(Integer id) {
+		this.id = id;
 	}
 
 	public int getCapacidad() {
@@ -46,13 +64,13 @@ public class AulaDTO {
 
 	@Override
 	public String toString() {
-		return "AulaDTO [" + "capacidad=" + capacidad + ", tieneSillasMovibles=" + tieneSillasMovibles
-			+ ", tieneComputadores=" + tieneComputadores + "]";
+		return "AulaDTO [id=" + id + ", capacidad=" + capacidad + ", tieneSillasMovibles=" + tieneSillasMovibles
+				+ ", tieneComputadores=" + tieneComputadores + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(capacidad, tieneComputadores, tieneSillasMovibles);
+		return Objects.hash(id, capacidad, tieneComputadores, tieneSillasMovibles);
 	}
 
 	@Override
@@ -62,7 +80,8 @@ public class AulaDTO {
 		if (obj == null || getClass() != obj.getClass())
 			return false;
 		AulaDTO other = (AulaDTO) obj;
-		return capacidad == other.capacidad && tieneSillasMovibles == other.tieneSillasMovibles
+		return Objects.equals(id, other.id) && capacidad == other.capacidad
+				&& tieneSillasMovibles == other.tieneSillasMovibles
 				&& tieneComputadores == other.tieneComputadores;
 	}
 

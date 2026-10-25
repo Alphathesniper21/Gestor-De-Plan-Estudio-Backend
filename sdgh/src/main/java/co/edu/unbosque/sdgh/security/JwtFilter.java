@@ -22,7 +22,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-public class JwtFilter extends OncePerRequestFilter{
+@org.springframework.stereotype.Component
+public class JwtFilter extends OncePerRequestFilter {
 	/**
 	 * Utilidad para la generacion y validacion de tokens JWT.
 	 */

@@ -4,9 +4,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.PrimaryKeyJoinColumn;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "profesores")
+@PrimaryKeyJoinColumn(name = "usuario_codigo")
 public class Profesor extends Usuario {
 
-   
     private String tituloPregrado;
     private String actaGradoPregrado;
     private String tituloPosgrado;          
@@ -16,7 +27,6 @@ public class Profesor extends Usuario {
     private int horasFormacionPedagogica;  
     private String maximoNivelFormacion;   
 
-  
     private String tipoDocumento;          
     private String numeroDocumento;
     private String tarjetaProfesional;     
@@ -25,16 +35,23 @@ public class Profesor extends Usuario {
     private String fondoPensiones;
     private boolean tieneVisaTrabajo;      
 
-    
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "profesor_especialidades", joinColumns = @JoinColumn(name = "profesor_codigo"))
+    @Column(name = "especialidad")
     private List<String> especialidades;
+
     private int aniosExperiencia;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "profesor_publicaciones", joinColumns = @JoinColumn(name = "profesor_codigo"))
+    @Column(name = "publicacion")
     private List<String> publicaciones;    
+
     private String nivelIngles;            
     private String examenIngles;           
     private double puntajeIngles;
     private boolean hojaVidaActualizada;
 
-  
     public Profesor() {
         super();
         this.especialidades = new ArrayList<>();
