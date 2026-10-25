@@ -21,7 +21,6 @@ public class EtapaFormacion {
         this.semestreFin = semestreFin;
     }
 
-    // Getters y Setters
     public int getNumero() { return numero; }
     public void setNumero(int numero) { this.numero = numero; }
 
