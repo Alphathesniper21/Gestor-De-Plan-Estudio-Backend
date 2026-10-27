@@ -1,249 +1,291 @@
+/**
+ * Paquete de servicios del aplicativo.
+ */
 package co.edu.unbosque.sdgh.service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.AulaDTO;
 import co.edu.unbosque.sdgh.entity.Aula;
+import co.edu.unbosque.sdgh.exception.ClassroomNotFoundException;
+import co.edu.unbosque.sdgh.exception.InvalidNumberException;
+import co.edu.unbosque.sdgh.exception.LanzadorDeExcepcion;
+import co.edu.unbosque.sdgh.exception.NullDataException;
 import co.edu.unbosque.sdgh.repository.AulaRepository;
 
 /**
- * Servicio que gestiona la logica de negocio para las aulas fisicas
+ * Servicio encargado de gestionar las operaciones CRUD de las aulas fisicas
  * (CU04 - RF04, RF07, RF08).
  */
 @Service
 public class AulaService implements CRUDOperation<AulaDTO> {
 
+	/**
+	 * Repositorio encargado de las operaciones de persistencia de aulas.
+	 */
 	@Autowired
 	private AulaRepository aulaRepo;
 
+	/**
+	 * Mapper utilizado para convertir entidades en DTO y viceversa.
+	 */
+	@Autowired
+	private ModelMapper mapper;
+
+	/**
+	 * Constructor vacio de la clase AulaService.
+	 */
 	public AulaService() {
 	}
 
 	/**
-	 * Registra una nueva aula validando que su capacidad sea mayor a cero (CU04 / RF04).
-	 *
-	 * @param data DTO con los datos del aula a registrar.
-	 * @return 0 si se registro correctamente;
-	 *         2 si los datos son nulos o la capacidad es menor o igual a cero.
+	 * Metodo que crea una nueva aula validando que su capacidad sea mayor a cero (CU04 / RF04).
+	 * @param newData DTO con la informacion del aula a crear.
+	 * @return Retorna 0 si el aula fue creada correctamente o 2 si los datos
+	 *         son nulos o la capacidad es menor o igual a cero.
 	 */
 	@Override
-	public int create(AulaDTO data) {
-		if (!esAulaValida(data)) {
-			return 2;
-		}
-		Aula entity = toEntity(data);
-		aulaRepo.save(entity);
-		return 0;
-	}
+	public int create(AulaDTO newData) {
 
-	/**
-	 * Obtiene todas las aulas registradas en el sistema.
-	 *
-	 * @return Lista de {@link AulaDTO}.
-	 */
-	@Override
-	public List<AulaDTO> getAll() {
-		List<AulaDTO> dtoList = new ArrayList<>();
-		Iterable<Aula> entities = aulaRepo.findAll();
-		for (Aula entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
-		return dtoList;
-	}
-
-	/**
-	 * Elimina un aula por su ID.
-	 *
-	 * @param id Identificador del aula.
-	 * @return 0 si se elimino correctamente; 1 si no existe o el id es nulo.
-	 */
-	@Override
-	public int deleteById(Integer id) {
-		if (id == null || !aulaRepo.existsById(id)) {
-			return 1;
-		}
-		aulaRepo.deleteById(id);
-		return 0;
-	}
-
-	/**
-	 * Actualiza la capacidad y caracteristicas de un aula existente por su ID (CU04).
-	 *
-	 * @param id      Identificador del aula a actualizar.
-	 * @param newData Nuevos datos del aula.
-	 * @return 0 si se actualizo con exito;
-	 *         1 si el aula no existe;
-	 *         2 si la nueva capacidad es menor o igual a cero.
-	 */
-	@Override
-	public int updateById(Integer id, AulaDTO newData) {
-		if (id == null) {
-			return 1;
-		}
-		Optional<Aula> foundOpt = aulaRepo.findById(id);
-		if (foundOpt.isEmpty()) {
-			return 1;
-		}
 		if (!esAulaValida(newData)) {
 			return 2;
 		}
 
-		Aula entityToUpdate = foundOpt.get();
-		entityToUpdate.setCapacidad(newData.getCapacidad());
-		entityToUpdate.setTieneSillasMovibles(newData.isTieneSillasMovibles());
-		entityToUpdate.setTieneComputadores(newData.isTieneComputadores());
-
-		aulaRepo.save(entityToUpdate);
+		aulaRepo.save(mapper.map(newData, Aula.class));
 		return 0;
 	}
 
 	/**
-	 * Cuenta el total de aulas registradas.
-	 *
-	 * @return Cantidad total de aulas.
+	 * Metodo que obtiene todas las aulas registradas.
+	 * @return Retorna una lista con todas las aulas en formato DTO.
+	 */
+	@Override
+	public List<AulaDTO> getAll() {
+
+		List<Aula> entityList = (List<Aula>) aulaRepo.findAll();
+		List<AulaDTO> dtoList = new ArrayList<>();
+
+		entityList.forEach((entidad) -> {
+
+			AulaDTO dto = mapper.map(entidad, AulaDTO.class);
+			dtoList.add(dto);
+		});
+
+		return dtoList;
+	}
+
+	/**
+	 * Metodo que elimina un aula mediante su identificador.
+	 * @param id Identificador del aula a eliminar.
+	 * @return Retorna 0 si el aula fue eliminada correctamente o 1 si el
+	 *         aula no existe o el identificador es nulo.
+	 */
+	@Override
+	public int deleteById(Integer id) {
+
+		if (id == null) {
+			return 1;
+		}
+
+		Optional<Aula> encontrado = aulaRepo.findById(id);
+
+		try {
+			LanzadorDeExcepcion.revisarSiExisteAula(encontrado);
+		} catch (ClassroomNotFoundException e) {
+			System.out.println("Error de aula: " + e.getMessage());
+			return 1;
+		}
+
+		aulaRepo.delete(encontrado.get());
+		return 0;
+	}
+
+	/**
+	 * Metodo que actualiza la capacidad y las caracteristicas de un aula mediante
+	 * su identificador (CU04).
+	 * @param id Identificador del aula a actualizar.
+	 * @param newData DTO con la nueva informacion del aula.
+	 * @return Retorna 0 si la actualizacion fue exitosa, 1 si el aula no
+	 *         existe o 2 si la nueva capacidad es menor o igual a cero.
+	 */
+	@Override
+	public int updateById(Integer id, AulaDTO newData) {
+
+		if (id == null) {
+			return 1;
+		}
+
+		Optional<Aula> encontrado = aulaRepo.findById(id);
+
+		try {
+			LanzadorDeExcepcion.revisarSiExisteAula(encontrado);
+		} catch (ClassroomNotFoundException e) {
+			System.out.println("Error de aula: " + e.getMessage());
+			return 1;
+		}
+
+		if (!esAulaValida(newData)) {
+			return 2;
+		}
+
+		Aula temp = encontrado.get();
+		temp.setCapacidad(newData.getCapacidad());
+		temp.setTieneSillasMovibles(newData.isTieneSillasMovibles());
+		temp.setTieneComputadores(newData.isTieneComputadores());
+		aulaRepo.save(temp);
+		return 0;
+	}
+
+	/**
+	 * Metodo que cuenta la cantidad total de aulas registradas.
+	 * @return Retorna la cantidad total de aulas.
 	 */
 	@Override
 	public long count() {
+
 		return aulaRepo.count();
 	}
 
 	/**
-	 * Verifica si existe un aula con el ID indicado.
-	 *
-	 * @param id Identificador del aula.
-	 * @return true si existe, false en caso contrario.
+	 * Metodo que verifica si un aula existe mediante su identificador.
+	 * @param id Identificador del aula a verificar.
+	 * @return Retorna true si el aula existe o false en caso contrario.
 	 */
 	@Override
 	public boolean exist(Integer id) {
+
 		return id != null && aulaRepo.existsById(id);
 	}
 
 	/**
-	 * Busca un aula por su ID.
-	 *
+	 * Metodo que busca un aula mediante su identificador.
 	 * @param id Identificador del aula.
-	 * @return {@link AulaDTO} si existe, o null si no se encuentra.
+	 * @return Retorna el aula en formato DTO o null si no se encuentra.
 	 */
 	public AulaDTO getById(Integer id) {
+
 		if (id == null) {
 			return null;
 		}
-		return aulaRepo.findById(id).map(this::toDTO).orElse(null);
+
+		Optional<Aula> encontrado = aulaRepo.findById(id);
+
+		try {
+			LanzadorDeExcepcion.revisarSiExisteAula(encontrado);
+		} catch (ClassroomNotFoundException e) {
+			System.out.println("Error de aula: " + e.getMessage());
+			return null;
+		}
+
+		return mapper.map(encontrado.get(), AulaDTO.class);
 	}
 
 	/**
-	 * Busca las aulas con capacidad igual o superior a la requerida (RF07).
-	 *
+	 * Metodo que busca las aulas con capacidad igual o superior a la requerida (RF07).
 	 * @param capacidad Capacidad minima requerida.
-	 * @return Lista de {@link AulaDTO} que cumplen la capacidad.
+	 * @return Retorna una lista de aulas en formato DTO que cumplen la capacidad.
 	 */
 	public List<AulaDTO> getByCapacidadMinima(int capacidad) {
+
+		List<Aula> entityList = aulaRepo.findByCapacidadGreaterThanEqual(capacidad);
 		List<AulaDTO> dtoList = new ArrayList<>();
-		List<Aula> entities = aulaRepo.findByCapacidadGreaterThanEqual(capacidad);
-		for (Aula entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			AulaDTO dto = mapper.map(entidad, AulaDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Busca las aulas segun si disponen o no de computadores (RF08).
-	 *
+	 * Metodo que busca las aulas segun si disponen o no de computadores (RF08).
 	 * @param tieneComputadores true para aulas con computadores, false para las demas.
-	 * @return Lista de {@link AulaDTO} filtrada.
+	 * @return Retorna una lista de aulas en formato DTO filtrada.
 	 */
 	public List<AulaDTO> getByTieneComputadores(boolean tieneComputadores) {
+
+		List<Aula> entityList = aulaRepo.findByTieneComputadores(tieneComputadores);
 		List<AulaDTO> dtoList = new ArrayList<>();
-		List<Aula> entities = aulaRepo.findByTieneComputadores(tieneComputadores);
-		for (Aula entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			AulaDTO dto = mapper.map(entidad, AulaDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Busca las aulas segun si disponen o no de sillas movibles (RF08).
-	 *
+	 * Metodo que busca las aulas segun si disponen o no de sillas movibles (RF08).
 	 * @param tieneSillasMovibles true para aulas con sillas movibles, false para las demas.
-	 * @return Lista de {@link AulaDTO} filtrada.
+	 * @return Retorna una lista de aulas en formato DTO filtrada.
 	 */
 	public List<AulaDTO> getByTieneSillasMovibles(boolean tieneSillasMovibles) {
+
+		List<Aula> entityList = aulaRepo.findByTieneSillasMovibles(tieneSillasMovibles);
 		List<AulaDTO> dtoList = new ArrayList<>();
-		List<Aula> entities = aulaRepo.findByTieneSillasMovibles(tieneSillasMovibles);
-		for (Aula entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			AulaDTO dto = mapper.map(entidad, AulaDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Busca las aulas con capacidad igual o superior a la requerida y que cumplan la condicion de computadores.
-	 *
-	 * @param capacidad         Capacidad minima requerida.
+	 * Metodo que busca las aulas con capacidad igual o superior a la requerida y
+	 * que cumplan la condicion de computadores.
+	 * @param capacidad Capacidad minima requerida.
 	 * @param tieneComputadores true si requiere computadores.
-	 * @return Lista de {@link AulaDTO} que cumplen ambos criterios.
+	 * @return Retorna una lista de aulas en formato DTO que cumplen ambos criterios.
 	 */
 	public List<AulaDTO> getByCapacidadMinimaAndComputadores(int capacidad, boolean tieneComputadores) {
+
+		List<Aula> entityList = aulaRepo.findByCapacidadGreaterThanEqualAndTieneComputadores(capacidad,
+				tieneComputadores);
 		List<AulaDTO> dtoList = new ArrayList<>();
-		List<Aula> entities = aulaRepo.findByCapacidadGreaterThanEqualAndTieneComputadores(capacidad, tieneComputadores);
-		for (Aula entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			AulaDTO dto = mapper.map(entidad, AulaDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Valida que el aula tenga datos validos y capacidad positiva.
-	 *
-	 * @param data DTO a validar.
-	 * @return true si es valido, false en caso contrario.
+	 * Metodo que valida que el aula tenga datos validos y capacidad positiva.
+	 * @param data DTO del aula a validar.
+	 * @return Retorna true si los datos son validos o false en caso contrario.
 	 */
 	private boolean esAulaValida(AulaDTO data) {
-		return data != null && data.getCapacidad() > 0;
-	}
 
-	/**
-	 * Convierte una entidad {@link Aula} a {@link AulaDTO}.
-	 *
-	 * @param entity Entidad Aula.
-	 * @return Objeto AulaDTO.
-	 */
-	public AulaDTO toDTO(Aula entity) {
-		if (entity == null) {
-			return null;
+		try {
+			LanzadorDeExcepcion.verificarDatosNoNulos(data);
+		} catch (NullDataException e) {
+			System.out.println("Error de aula: " + e.getMessage());
+			return false;
 		}
-		return new AulaDTO(
-				entity.getId(),
-				entity.getCapacidad(),
-				entity.isTieneSillasMovibles(),
-				entity.isTieneComputadores()
-		);
-	}
 
-	/**
-	 * Convierte un {@link AulaDTO} a entidad {@link Aula}.
-	 *
-	 * @param dto Objeto AulaDTO.
-	 * @return Entidad Aula.
-	 */
-	public Aula toEntity(AulaDTO dto) {
-		if (dto == null) {
-			return null;
+		try {
+			LanzadorDeExcepcion.verificarPositivo(data.getCapacidad());
+		} catch (InvalidNumberException e) {
+			System.out.println("Error de capacidad: " + e.getMessage());
+			return false;
 		}
-		Aula entity = new Aula(
-				dto.getCapacidad(),
-				dto.isTieneSillasMovibles(),
-				dto.isTieneComputadores()
-		);
-		if (dto.getId() != null) {
-			entity.setId(dto.getId());
-		}
-		return entity;
-	}
 
+		return true;
+	}
 }
