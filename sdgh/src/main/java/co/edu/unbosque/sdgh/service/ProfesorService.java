@@ -1,421 +1,486 @@
+/**
+ * Paquete de servicios del aplicativo.
+ */
 package co.edu.unbosque.sdgh.service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.ProfesorDTO;
 import co.edu.unbosque.sdgh.entity.Profesor;
+import co.edu.unbosque.sdgh.exception.EmptyFieldException;
+import co.edu.unbosque.sdgh.exception.InvalidNumberException;
+import co.edu.unbosque.sdgh.exception.LanzadorDeExcepcion;
+import co.edu.unbosque.sdgh.exception.NullDataException;
+import co.edu.unbosque.sdgh.exception.RecordAlreadyExistsException;
+import co.edu.unbosque.sdgh.exception.TeacherNotFoundException;
 import co.edu.unbosque.sdgh.repository.ProfesorRepository;
 
+/**
+ * Servicio encargado de gestionar las operaciones CRUD de los docentes
+ * (CU03 - RF03, RF17).
+ */
 @Service
 public class ProfesorService implements CRUDOperation<ProfesorDTO> {
 
+	/**
+	 * Repositorio encargado de las operaciones de persistencia de docentes.
+	 */
 	@Autowired
 	private ProfesorRepository profesorRepo;
 
+	/**
+	 * Mapper utilizado para convertir entidades en DTO y viceversa.
+	 */
+	@Autowired
+	private ModelMapper mapper;
+
+	/**
+	 * Constructor vacio de la clase ProfesorService.
+	 */
 	public ProfesorService() {
 	}
 
 	/**
-	 * Registra un nuevo docente validando unicidad de codigo/correo y datos obligatorios (CU03 / RF03).
-	 *
-	 * @param data DTO con los datos del docente a registrar.
-	 * @return 0 si se registro con exito;
-	 *         1 si el codigo o el correo ya existen (duplicado);
-	 *         2 si los datos son nulos, incompletos o invalidos.
+	 * Metodo que crea un nuevo docente validando unicidad de codigo y correo, asi
+	 * como los datos obligatorios (CU03 / RF03).
+	 * @param newData DTO con la informacion del docente a crear.
+	 * @return Retorna 0 si el docente fue creado correctamente, 1 si el
+	 *         codigo o el correo ya existen o 2 si los datos son nulos,
+	 *         estan incompletos o son invalidos.
 	 */
 	@Override
-	public int create(ProfesorDTO data) {
-		if (!esProfesorValido(data)) {
+	public int create(ProfesorDTO newData) {
+
+		if (!esProfesorValido(newData)) {
 			return 2;
 		}
-		if (profesorRepo.existsById(data.getCodigo())) {
-			return 1;
+
+		try {
+			LanzadorDeExcepcion.verificarPositivo(newData.getCodigo());
+		} catch (InvalidNumberException e) {
+			System.out.println("Error de codigo: " + e.getMessage());
+			return 2;
 		}
-		if (profesorRepo.existsByCorreo(data.getCorreo().trim())) {
+
+		try {
+			LanzadorDeExcepcion.revisarSiRegistroYaExiste(profesorRepo.existsById(newData.getCodigo()),
+					"codigo " + newData.getCodigo());
+		} catch (RecordAlreadyExistsException e) {
+			System.out.println("Error de codigo: " + e.getMessage());
 			return 1;
 		}
 
-		Profesor entity = toEntity(data);
+		try {
+			LanzadorDeExcepcion.revisarSiRegistroYaExiste(profesorRepo.existsByCorreo(newData.getCorreo().trim()),
+					"correo " + newData.getCorreo().trim());
+		} catch (RecordAlreadyExistsException e) {
+			System.out.println("Error de correo: " + e.getMessage());
+			return 1;
+		}
+
+		Profesor entity = mapper.map(newData, Profesor.class);
+		entity.setNombre(newData.getNombre().trim());
+		entity.setCorreo(newData.getCorreo().trim());
+		entity.setFacultad(newData.getFacultad().trim());
+		entity.setEspecialidades(newData.getEspecialidades() != null
+				? new ArrayList<>(newData.getEspecialidades())
+				: new ArrayList<>());
+		entity.setPublicaciones(newData.getPublicaciones() != null
+				? new ArrayList<>(newData.getPublicaciones())
+				: new ArrayList<>());
 		profesorRepo.save(entity);
 		return 0;
 	}
 
 	/**
-	 * Obtiene todos los docentes registrados en el sistema (CU03 / RF03).
-	 *
-	 * @return Lista de {@link ProfesorDTO}.
+	 * Metodo que obtiene todos los docentes registrados (CU03 / RF03).
+	 * @return Retorna una lista con todos los docentes en formato DTO.
 	 */
 	@Override
 	public List<ProfesorDTO> getAll() {
+
+		List<Profesor> entityList = (List<Profesor>) profesorRepo.findAll();
 		List<ProfesorDTO> dtoList = new ArrayList<>();
-		Iterable<Profesor> entities = profesorRepo.findAll();
-		for (Profesor entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			ProfesorDTO dto = mapper.map(entidad, ProfesorDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Elimina un docente por su ID (codigo).
-	 *
-	 * @param id Codigo del docente a eliminar.
-	 * @return 0 si se elimino correctamente; 1 si no existe o el id es nulo.
+	 * Metodo que elimina un docente mediante su identificador.
+	 * @param id Identificador (codigo) del docente a eliminar.
+	 * @return Retorna 0 si el docente fue eliminado correctamente o 1 si
+	 *         el docente no existe o el identificador es nulo.
 	 */
 	@Override
 	public int deleteById(Integer id) {
-		if (id == null || !profesorRepo.existsById(id)) {
+
+		if (id == null) {
 			return 1;
 		}
-		profesorRepo.deleteById(id);
+
+		Optional<Profesor> encontrado = profesorRepo.findById(id);
+
+		try {
+			LanzadorDeExcepcion.revisarSiExisteProfesor(encontrado);
+		} catch (TeacherNotFoundException e) {
+			System.out.println("Error de docente: " + e.getMessage());
+			return 1;
+		}
+
+		profesorRepo.delete(encontrado.get());
 		return 0;
 	}
 
 	/**
-	 * Actualiza la informacion de un docente existente por su ID (codigo) (CU03 / RF03).
-	 *
-	 * @param id      Codigo del docente a actualizar.
-	 * @param newData Nuevos datos del docente.
-	 * @return 0 si se actualizo con exito;
-	 *         1 si el docente no existe o el nuevo correo ya pertenece a otro docente;
-	 *         2 si los datos nuevos son invalidos o incompletos.
+	 * Metodo que actualiza un docente mediante su identificador (CU03 / RF03).
+	 * @param id Identificador (codigo) del docente a actualizar.
+	 * @param newData DTO con la nueva informacion del docente.
+	 * @return Retorna 0 si la actualizacion fue exitosa, 1 si el docente no
+	 *         existe o el correo ya pertenece a otro docente, o 2 si los
+	 *         datos nuevos son invalidos o estan incompletos.
 	 */
 	@Override
 	public int updateById(Integer id, ProfesorDTO newData) {
+
 		if (id == null) {
 			return 1;
 		}
-		Optional<Profesor> foundOpt = profesorRepo.findById(id);
-		if (foundOpt.isEmpty()) {
+
+		Optional<Profesor> encontrado = profesorRepo.findById(id);
+
+		try {
+			LanzadorDeExcepcion.revisarSiExisteProfesor(encontrado);
+		} catch (TeacherNotFoundException e) {
+			System.out.println("Error de docente: " + e.getMessage());
 			return 1;
 		}
-		if (newData == null || newData.getNombre() == null || newData.getNombre().trim().isEmpty()
-				|| newData.getCorreo() == null || newData.getCorreo().trim().isEmpty()
-				|| newData.getFacultad() == null || newData.getFacultad().trim().isEmpty()
-				|| newData.getAniosExperiencia() < 0 || newData.getHorasFormacionPedagogica() < 0
-				|| newData.getPuntajeIngles() < 0) {
+
+		if (!esProfesorValido(newData)) {
 			return 2;
 		}
 
 		Optional<Profesor> porCorreo = profesorRepo.findByCorreo(newData.getCorreo().trim());
-		if (porCorreo.isPresent() && porCorreo.get().getCodigo() != id.intValue()) {
+
+		try {
+			LanzadorDeExcepcion.revisarSiRegistroYaExiste(
+					porCorreo.isPresent() && porCorreo.get().getCodigo() != id.intValue(),
+					"correo " + newData.getCorreo().trim());
+		} catch (RecordAlreadyExistsException e) {
+			System.out.println("Error de correo: " + e.getMessage());
 			return 1;
 		}
 
-		Profesor entityToUpdate = foundOpt.get();
-		entityToUpdate.setNombre(newData.getNombre().trim());
-		entityToUpdate.setCorreo(newData.getCorreo().trim());
-		entityToUpdate.setFacultad(newData.getFacultad().trim());
-		entityToUpdate.setTituloPregrado(newData.getTituloPregrado());
-		entityToUpdate.setActaGradoPregrado(newData.getActaGradoPregrado());
-		entityToUpdate.setTituloPosgrado(newData.getTituloPosgrado());
-		entityToUpdate.setNivelPosgrado(newData.getNivelPosgrado());
-		entityToUpdate.setTituloExtranjero(newData.isTituloExtranjero());
-		entityToUpdate.setResolucionConvalidacion(newData.getResolucionConvalidacion());
-		entityToUpdate.setHorasFormacionPedagogica(newData.getHorasFormacionPedagogica());
-		entityToUpdate.setMaximoNivelFormacion(newData.getMaximoNivelFormacion());
-		entityToUpdate.setTipoDocumento(newData.getTipoDocumento());
-		entityToUpdate.setNumeroDocumento(newData.getNumeroDocumento());
-		entityToUpdate.setTarjetaProfesional(newData.getTarjetaProfesional());
-		entityToUpdate.setRut(newData.getRut());
-		entityToUpdate.setEps(newData.getEps());
-		entityToUpdate.setFondoPensiones(newData.getFondoPensiones());
-		entityToUpdate.setTieneVisaTrabajo(newData.isTieneVisaTrabajo());
-		entityToUpdate.setEspecialidades(newData.getEspecialidades() != null
+		Profesor temp = encontrado.get();
+		temp.setNombre(newData.getNombre().trim());
+		temp.setCorreo(newData.getCorreo().trim());
+		temp.setFacultad(newData.getFacultad().trim());
+		temp.setTituloPregrado(newData.getTituloPregrado());
+		temp.setActaGradoPregrado(newData.getActaGradoPregrado());
+		temp.setTituloPosgrado(newData.getTituloPosgrado());
+		temp.setNivelPosgrado(newData.getNivelPosgrado());
+		temp.setTituloExtranjero(newData.isTituloExtranjero());
+		temp.setResolucionConvalidacion(newData.getResolucionConvalidacion());
+		temp.setHorasFormacionPedagogica(newData.getHorasFormacionPedagogica());
+		temp.setMaximoNivelFormacion(newData.getMaximoNivelFormacion());
+		temp.setTipoDocumento(newData.getTipoDocumento());
+		temp.setNumeroDocumento(newData.getNumeroDocumento());
+		temp.setTarjetaProfesional(newData.getTarjetaProfesional());
+		temp.setRut(newData.getRut());
+		temp.setEps(newData.getEps());
+		temp.setFondoPensiones(newData.getFondoPensiones());
+		temp.setTieneVisaTrabajo(newData.isTieneVisaTrabajo());
+		temp.setEspecialidades(newData.getEspecialidades() != null
 				? new ArrayList<>(newData.getEspecialidades())
 				: new ArrayList<>());
-		entityToUpdate.setAniosExperiencia(newData.getAniosExperiencia());
-		entityToUpdate.setPublicaciones(newData.getPublicaciones() != null
+		temp.setAniosExperiencia(newData.getAniosExperiencia());
+		temp.setPublicaciones(newData.getPublicaciones() != null
 				? new ArrayList<>(newData.getPublicaciones())
 				: new ArrayList<>());
-		entityToUpdate.setNivelIngles(newData.getNivelIngles());
-		entityToUpdate.setExamenIngles(newData.getExamenIngles());
-		entityToUpdate.setPuntajeIngles(newData.getPuntajeIngles());
-		entityToUpdate.setHojaVidaActualizada(newData.isHojaVidaActualizada());
-
-		profesorRepo.save(entityToUpdate);
+		temp.setNivelIngles(newData.getNivelIngles());
+		temp.setExamenIngles(newData.getExamenIngles());
+		temp.setPuntajeIngles(newData.getPuntajeIngles());
+		temp.setHojaVidaActualizada(newData.isHojaVidaActualizada());
+		profesorRepo.save(temp);
 		return 0;
 	}
 
 	/**
-	 * Cuenta el total de docentes registrados.
-	 *
-	 * @return Cantidad total de docentes.
+	 * Metodo que cuenta la cantidad total de docentes registrados.
+	 * @return Retorna la cantidad total de docentes.
 	 */
 	@Override
 	public long count() {
+
 		return profesorRepo.count();
 	}
 
 	/**
-	 * Verifica si existe un docente con el ID (codigo) indicado.
-	 *
-	 * @param id Codigo del docente.
-	 * @return true si existe, false en caso contrario.
+	 * Metodo que verifica si un docente existe mediante su identificador.
+	 * @param id Identificador (codigo) del docente a verificar.
+	 * @return Retorna true si el docente existe o false en caso contrario.
 	 */
 	@Override
 	public boolean exist(Integer id) {
+
 		return id != null && profesorRepo.existsById(id);
 	}
 
 	/**
-	 * Busca un docente por su codigo unico.
-	 *
+	 * Metodo que busca un docente mediante su codigo unico.
 	 * @param id Codigo del docente.
-	 * @return {@link ProfesorDTO} si existe, o null si no se encuentra.
+	 * @return Retorna el docente en formato DTO o null si no se encuentra.
 	 */
 	public ProfesorDTO getById(Integer id) {
+
 		if (id == null) {
 			return null;
 		}
-		return profesorRepo.findById(id).map(this::toDTO).orElse(null);
+
+		return profesorRepo.findById(id).map((entidad) -> mapper.map(entidad, ProfesorDTO.class)).orElse(null);
 	}
 
 	/**
-	 * Busca un docente por su correo electronico.
-	 *
+	 * Metodo que busca un docente mediante su correo electronico.
 	 * @param correo Correo institucional del docente.
-	 * @return {@link ProfesorDTO} si existe, o null si no se encuentra.
+	 * @return Retorna el docente en formato DTO o null si no se encuentra.
 	 */
 	public ProfesorDTO getByCorreo(String correo) {
+
 		if (correo == null || correo.trim().isEmpty()) {
 			return null;
 		}
-		return profesorRepo.findByCorreo(correo.trim()).map(this::toDTO).orElse(null);
+
+		return profesorRepo.findByCorreo(correo.trim()).map((entidad) -> mapper.map(entidad, ProfesorDTO.class))
+				.orElse(null);
 	}
 
 	/**
-	 * Obtiene todos los docentes adscritos a una facultad especifica.
-	 *
+	 * Metodo que obtiene todos los docentes adscritos a una facultad especifica.
 	 * @param facultad Nombre de la facultad.
-	 * @return Lista de {@link ProfesorDTO} de la facultad.
+	 * @return Retorna una lista de docentes en formato DTO de la facultad.
 	 */
 	public List<ProfesorDTO> getByFacultad(String facultad) {
+
 		List<ProfesorDTO> dtoList = new ArrayList<>();
+
 		if (facultad == null || facultad.trim().isEmpty()) {
 			return dtoList;
 		}
-		List<Profesor> entities = profesorRepo.findByFacultad(facultad.trim());
-		for (Profesor entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		List<Profesor> entityList = profesorRepo.findByFacultad(facultad.trim());
+
+		entityList.forEach((entidad) -> {
+
+			ProfesorDTO dto = mapper.map(entidad, ProfesorDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Obtiene los docentes con una cantidad de anios de experiencia igual o superior a la indicada (RF03).
-	 *
+	 * Metodo que obtiene los docentes con una cantidad de anios de experiencia igual
+	 * o superior a la indicada (RF03).
 	 * @param anios Anios minimos de experiencia.
-	 * @return Lista de {@link ProfesorDTO} que cumplen el criterio.
+	 * @return Retorna una lista de docentes en formato DTO que cumplen el criterio.
 	 */
 	public List<ProfesorDTO> getByAniosExperienciaMinima(int anios) {
+
+		List<Profesor> entityList = profesorRepo.findByAniosExperienciaGreaterThanEqual(anios);
 		List<ProfesorDTO> dtoList = new ArrayList<>();
-		List<Profesor> entities = profesorRepo.findByAniosExperienciaGreaterThanEqual(anios);
-		for (Profesor entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			ProfesorDTO dto = mapper.map(entidad, ProfesorDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Obtiene los docentes filtrados por su nivel de ingles.
-	 *
+	 * Metodo que obtiene los docentes filtrados por su nivel de ingles.
 	 * @param nivelIngles Nivel de ingles (ej. A2, B1, B2, C1).
-	 * @return Lista de {@link ProfesorDTO} con ese nivel.
+	 * @return Retorna una lista de docentes en formato DTO con ese nivel.
 	 */
 	public List<ProfesorDTO> getByNivelIngles(String nivelIngles) {
+
 		List<ProfesorDTO> dtoList = new ArrayList<>();
+
 		if (nivelIngles == null || nivelIngles.trim().isEmpty()) {
 			return dtoList;
 		}
-		List<Profesor> entities = profesorRepo.findByNivelIngles(nivelIngles.trim());
-		for (Profesor entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		List<Profesor> entityList = profesorRepo.findByNivelIngles(nivelIngles.trim());
+
+		entityList.forEach((entidad) -> {
+
+			ProfesorDTO dto = mapper.map(entidad, ProfesorDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Obtiene los docentes segun si tienen su hoja de vida actualizada o no.
-	 *
+	 * Metodo que obtiene los docentes segun si tienen su hoja de vida actualizada o no.
 	 * @param hojaVidaActualizada true para hojas de vida actualizadas, false en caso contrario.
-	 * @return Lista de {@link ProfesorDTO} filtrada.
+	 * @return Retorna una lista de docentes en formato DTO filtrada.
 	 */
 	public List<ProfesorDTO> getByHojaVidaActualizada(boolean hojaVidaActualizada) {
+
+		List<Profesor> entityList = profesorRepo.findByHojaVidaActualizada(hojaVidaActualizada);
 		List<ProfesorDTO> dtoList = new ArrayList<>();
-		List<Profesor> entities = profesorRepo.findByHojaVidaActualizada(hojaVidaActualizada);
-		for (Profesor entity : entities) {
-			dtoList.add(toDTO(entity));
-		}
+
+		entityList.forEach((entidad) -> {
+
+			ProfesorDTO dto = mapper.map(entidad, ProfesorDTO.class);
+			dtoList.add(dto);
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Obtiene los docentes que cuentan con una especialidad especifica y pueden orientar cursos afines (RF17).
-	 *
+	 * Metodo que obtiene los docentes que cuentan con una especialidad especifica y
+	 * pueden orientar cursos afines (RF17).
 	 * @param especialidad Nombre de la especialidad o area de conocimiento.
-	 * @return Lista de {@link ProfesorDTO} que poseen la especialidad.
+	 * @return Retorna una lista de docentes en formato DTO que poseen la especialidad.
 	 */
 	public List<ProfesorDTO> getByEspecialidad(String especialidad) {
+
 		List<ProfesorDTO> dtoList = new ArrayList<>();
+
 		if (especialidad == null || especialidad.trim().isEmpty()) {
 			return dtoList;
 		}
+
 		String buscada = especialidad.trim().toLowerCase();
-		Iterable<Profesor> entities = profesorRepo.findAll();
-		for (Profesor entity : entities) {
-			if (entity.getEspecialidades() != null) {
-				for (String esp : entity.getEspecialidades()) {
+		List<Profesor> entityList = (List<Profesor>) profesorRepo.findAll();
+
+		entityList.forEach((entidad) -> {
+
+			if (entidad.getEspecialidades() != null) {
+
+				for (String esp : entidad.getEspecialidades()) {
+
 					if (esp != null && esp.trim().toLowerCase().contains(buscada)) {
-						dtoList.add(toDTO(entity));
+						dtoList.add(mapper.map(entidad, ProfesorDTO.class));
 						break;
 					}
 				}
 			}
-		}
+		});
+
 		return dtoList;
 	}
 
 	/**
-	 * Verifica si un docente especifico tiene una especialidad que le permita orientar una materia (RF17).
-	 *
-	 * @param idDocente    Codigo del docente.
+	 * Metodo que verifica si un docente especifico tiene una especialidad que le
+	 * permita orientar una materia (RF17).
+	 * @param idDocente Codigo del docente.
 	 * @param especialidad Especialidad o nombre de la materia a verificar.
-	 * @return true si el docente posee la especialidad, false en caso contrario.
+	 * @return Retorna true si el docente posee la especialidad o false en caso contrario.
 	 */
 	public boolean puedeOrientarEspecialidad(Integer idDocente, String especialidad) {
+
 		if (idDocente == null || especialidad == null || especialidad.trim().isEmpty()) {
 			return false;
 		}
-		Optional<Profesor> foundOpt = profesorRepo.findById(idDocente);
-		if (foundOpt.isEmpty() || foundOpt.get().getEspecialidades() == null) {
+
+		Optional<Profesor> encontrado = profesorRepo.findById(idDocente);
+
+		try {
+			LanzadorDeExcepcion.revisarSiExisteProfesor(encontrado);
+		} catch (TeacherNotFoundException e) {
+			System.out.println("Error de docente: " + e.getMessage());
 			return false;
 		}
+
+		if (encontrado.get().getEspecialidades() == null) {
+			return false;
+		}
+
 		String buscada = especialidad.trim().toLowerCase();
-		for (String esp : foundOpt.get().getEspecialidades()) {
+
+		for (String esp : encontrado.get().getEspecialidades()) {
+
 			if (esp != null && esp.trim().toLowerCase().contains(buscada)) {
 				return true;
 			}
 		}
+
 		return false;
 	}
 
 	/**
-	 * Valida que los datos obligatorios del docente sean consistentes (CU03 / RF03).
-	 *
-	 * @param data DTO a validar.
-	 * @return true si los datos son validos, false en caso contrario.
+	 * Metodo que valida que los datos obligatorios del docente sean consistentes (CU03 / RF03).
+	 * @param data DTO del docente a validar.
+	 * @return Retorna true si los datos son validos o false en caso contrario.
 	 */
 	private boolean esProfesorValido(ProfesorDTO data) {
-		if (data == null) {
+
+		try {
+			LanzadorDeExcepcion.verificarDatosNoNulos(data);
+		} catch (NullDataException e) {
+			System.out.println("Error de docente: " + e.getMessage());
 			return false;
 		}
-		if (data.getCodigo() <= 0) {
+
+		try {
+			LanzadorDeExcepcion.verificarCampoVacio(data.getNombre());
+		} catch (EmptyFieldException e) {
+			System.out.println("Error de nombre: " + e.getMessage());
 			return false;
 		}
-		if (data.getNombre() == null || data.getNombre().trim().isEmpty()) {
+
+		try {
+			LanzadorDeExcepcion.verificarCampoVacio(data.getCorreo());
+		} catch (EmptyFieldException e) {
+			System.out.println("Error de correo: " + e.getMessage());
 			return false;
 		}
-		if (data.getCorreo() == null || data.getCorreo().trim().isEmpty()) {
+
+		try {
+			LanzadorDeExcepcion.verificarCampoVacio(data.getFacultad());
+		} catch (EmptyFieldException e) {
+			System.out.println("Error de facultad: " + e.getMessage());
 			return false;
 		}
-		if (data.getFacultad() == null || data.getFacultad().trim().isEmpty()) {
+
+		try {
+			LanzadorDeExcepcion.verificarNoNegativo(data.getAniosExperiencia());
+		} catch (InvalidNumberException e) {
+			System.out.println("Error de anios de experiencia: " + e.getMessage());
 			return false;
 		}
-		if (data.getAniosExperiencia() < 0 || data.getHorasFormacionPedagogica() < 0
-				|| data.getPuntajeIngles() < 0) {
+
+		try {
+			LanzadorDeExcepcion.verificarNoNegativo(data.getHorasFormacionPedagogica());
+		} catch (InvalidNumberException e) {
+			System.out.println("Error de horas de formacion pedagogica: " + e.getMessage());
 			return false;
 		}
+
+		try {
+			LanzadorDeExcepcion.verificarNoNegativo(data.getPuntajeIngles());
+		} catch (InvalidNumberException e) {
+			System.out.println("Error de puntaje de ingles: " + e.getMessage());
+			return false;
+		}
+
 		return true;
 	}
-
-	/**
-	 * Convierte una entidad {@link Profesor} a {@link ProfesorDTO}.
-	 *
-	 * @param entity Entidad Profesor.
-	 * @return Objeto ProfesorDTO.
-	 */
-	public ProfesorDTO toDTO(Profesor entity) {
-		if (entity == null) {
-			return null;
-		}
-		return new ProfesorDTO(
-				entity.getNombre(),
-				entity.getCodigo(),
-				entity.getCorreo(),
-				entity.getFacultad(),
-				entity.getTituloPregrado(),
-				entity.getActaGradoPregrado(),
-				entity.getTituloPosgrado(),
-				entity.getNivelPosgrado(),
-				entity.isTituloExtranjero(),
-				entity.getResolucionConvalidacion(),
-				entity.getHorasFormacionPedagogica(),
-				entity.getMaximoNivelFormacion(),
-				entity.getTipoDocumento(),
-				entity.getNumeroDocumento(),
-				entity.getTarjetaProfesional(),
-				entity.getRut(),
-				entity.getEps(),
-				entity.getFondoPensiones(),
-				entity.isTieneVisaTrabajo(),
-				entity.getEspecialidades() != null ? new ArrayList<>(entity.getEspecialidades()) : new ArrayList<>(),
-				entity.getAniosExperiencia(),
-				entity.getPublicaciones() != null ? new ArrayList<>(entity.getPublicaciones()) : new ArrayList<>(),
-				entity.getNivelIngles(),
-				entity.getExamenIngles(),
-				entity.getPuntajeIngles(),
-				entity.isHojaVidaActualizada()
-		);
-	}
-
-	/**
-	 * Convierte un {@link ProfesorDTO} a entidad {@link Profesor}.
-	 *
-	 * @param dto Objeto ProfesorDTO.
-	 * @return Entidad Profesor.
-	 */
-	public Profesor toEntity(ProfesorDTO dto) {
-		if (dto == null) {
-			return null;
-		}
-		Profesor entity = new Profesor(
-				dto.getNombre() != null ? dto.getNombre().trim() : null,
-				dto.getCodigo(),
-				dto.getCorreo() != null ? dto.getCorreo().trim() : null,
-				dto.getFacultad() != null ? dto.getFacultad().trim() : null
-		);
-		entity.setTituloPregrado(dto.getTituloPregrado());
-		entity.setActaGradoPregrado(dto.getActaGradoPregrado());
-		entity.setTituloPosgrado(dto.getTituloPosgrado());
-		entity.setNivelPosgrado(dto.getNivelPosgrado());
-		entity.setTituloExtranjero(dto.isTituloExtranjero());
-		entity.setResolucionConvalidacion(dto.getResolucionConvalidacion());
-		entity.setHorasFormacionPedagogica(dto.getHorasFormacionPedagogica());
-		entity.setMaximoNivelFormacion(dto.getMaximoNivelFormacion());
-		entity.setTipoDocumento(dto.getTipoDocumento());
-		entity.setNumeroDocumento(dto.getNumeroDocumento());
-		entity.setTarjetaProfesional(dto.getTarjetaProfesional());
-		entity.setRut(dto.getRut());
-		entity.setEps(dto.getEps());
-		entity.setFondoPensiones(dto.getFondoPensiones());
-		entity.setTieneVisaTrabajo(dto.isTieneVisaTrabajo());
-		entity.setEspecialidades(dto.getEspecialidades() != null
-				? new ArrayList<>(dto.getEspecialidades())
-				: new ArrayList<>());
-		entity.setAniosExperiencia(dto.getAniosExperiencia());
-		entity.setPublicaciones(dto.getPublicaciones() != null
-				? new ArrayList<>(dto.getPublicaciones())
-				: new ArrayList<>());
-		entity.setNivelIngles(dto.getNivelIngles());
-		entity.setExamenIngles(dto.getExamenIngles());
-		entity.setPuntajeIngles(dto.getPuntajeIngles());
-		entity.setHojaVidaActualizada(dto.isHojaVidaActualizada());
-		return entity;
-	}
-
 }
