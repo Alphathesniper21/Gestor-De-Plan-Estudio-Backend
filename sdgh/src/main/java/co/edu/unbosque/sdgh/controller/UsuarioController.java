@@ -1,7 +1,6 @@
 package co.edu.unbosque.sdgh.controller;
 
 import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,8 +14,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
+import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
+import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.UsuarioService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -26,16 +27,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 
 /**
- * Controlador REST para gestionar los usuarios del aplicativo (CU01, CU09 - RF11, RF22, RF24).
- * Rutas bajo /usuario. Todos los endpoints requieren rol ADMINISTRADOR.
+ * Controlador REST para gestionar los usuarios del aplicativo. Rutas bajo
+ * /usuario. Todos los endpoints requieren rol GESTOR. Las excepciones del
+ * service se capturan aqui y se traducen a codigos HTTP.
  */
 @RestController
 @RequestMapping("/usuario")
-@CrossOrigin(origins = { "http://localhost:8080"})
+@CrossOrigin(origins = { "http://localhost:8080" })
 @Transactional
 @Tag(name = "Usuarios", description = "Endpoints para la gestion de usuarios")
 @SecurityRequirement(name = "bearerAuth")
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasRole('GESTOR')")
 public class UsuarioController {
 
 	/**
@@ -44,191 +46,132 @@ public class UsuarioController {
 	@Autowired
 	private UsuarioService usuarioServ;
 
-	/**
-	 * Crea un nuevo usuario. Retorna 201 si fue exitoso, 406 si hubo error.
-	 */
 	@PostMapping("/crear")
-	@Operation(summary = "Crear usuario", description = "Registra un nuevo usuario. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Crear usuario", description = "Registra un nuevo usuario. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "201", description = "Usuario creado exitosamente"),
-		@ApiResponse(responseCode = "406", description = "Error al crear usuario (datos invalidos o codigo/correo duplicado)")
+		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
+		@ApiResponse(responseCode = "409", description = "Codigo, correo o username duplicado")
 	})
-	public ResponseEntity<String> crear(@RequestParam String nombre, @RequestParam int codigo,
-			@RequestParam String correo, @RequestParam String facultad) {
-		UsuarioDTO nuevo = new UsuarioDTO(nombre, codigo, correo, facultad);
-		int status = usuarioServ.create(nuevo);
-		if (status == 0) {
+	public ResponseEntity<String> crear(@RequestParam String nombre,
+			@RequestParam String correo, @RequestParam String username, @RequestParam String password,
+			@RequestParam String rol) {
+		try {
+			UsuarioDTO nuevo = new UsuarioDTO(nombre, correo, username, password, rol);
+			usuarioServ.create(nuevo);
 			return new ResponseEntity<>("Usuario creado exitosamente", HttpStatus.CREATED);
-		} else {
-			return new ResponseEntity<>("Error al crear usuario", HttpStatus.NOT_ACCEPTABLE);
+		} catch (DatosInvalidosException | RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al crear usuario: " + e.getMessage(), estado(e));
 		}
 	}
 
-	/**
-	 * Retorna todos los usuarios. 202 si hay datos, 204 si la lista esta vacia.
-	 */
 	@GetMapping("/mostrartodo")
 	@Operation(summary = "Obtener todos los usuarios", description = "Retorna la lista de todos los usuarios registrados.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-		@ApiResponse(responseCode = "204", description = "No hay usuarios registrados")
-	})
 	public ResponseEntity<List<UsuarioDTO>> obtenerTodo() {
 		List<UsuarioDTO> lista = usuarioServ.getAll();
 		if (lista.isEmpty()) {
 			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 		}
+		return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 	}
 
-	/**
-	 * Busca un usuario por codigo. 202 si existe, 404 si no se encuentra.
-	 */
 	@GetMapping("/mostrar/{codigo}")
 	@Operation(summary = "Obtener usuario por codigo", description = "Retorna un usuario segun su codigo.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Usuario encontrado"),
-		@ApiResponse(responseCode = "404", description = "Usuario no encontrado")
-	})
-	public ResponseEntity<UsuarioDTO> obtenerPorCodigo(@PathVariable Integer codigo) {
-		UsuarioDTO dto = usuarioServ.getById(codigo);
-		if (dto != null) {
-			return new ResponseEntity<>(dto, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+	public ResponseEntity<UsuarioDTO> obtenerPorCodigo(@PathVariable Long id) {
+		try {
+			return new ResponseEntity<>(usuarioServ.getById(id), HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(estado(e));
 		}
 	}
 
-	/**
-	 * Busca un usuario por correo. 202 si existe, 404 si no se encuentra.
-	 */
 	@GetMapping("/mostrarporcorreo")
 	@Operation(summary = "Obtener usuario por correo", description = "Retorna un usuario segun su correo institucional.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Usuario encontrado"),
-		@ApiResponse(responseCode = "404", description = "Usuario no encontrado")
-	})
 	public ResponseEntity<UsuarioDTO> obtenerPorCorreo(@RequestParam String correo) {
-		UsuarioDTO dto = usuarioServ.getByCorreo(correo);
-		if (dto != null) {
-			return new ResponseEntity<>(dto, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		try {
+			return new ResponseEntity<>(usuarioServ.getByCorreo(correo), HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(estado(e));
 		}
 	}
 
-	/**
-	 * Busca un usuario por nombre de usuario. 202 si existe, 404 si no se encuentra.
-	 */
 	@GetMapping("/mostrarporusername")
 	@Operation(summary = "Obtener usuario por username", description = "Retorna un usuario segun su nombre de usuario (login).")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Usuario encontrado"),
-		@ApiResponse(responseCode = "404", description = "Usuario no encontrado")
-	})
 	public ResponseEntity<UsuarioDTO> obtenerPorUsername(@RequestParam String username) {
-		UsuarioDTO dto = usuarioServ.getByUsername(username);
-		if (dto != null) {
-			return new ResponseEntity<>(dto, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		try {
+			return new ResponseEntity<>(usuarioServ.getByUsername(username), HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(estado(e));
 		}
 	}
 
-	/**
-	 * Retorna los usuarios de una facultad. 202 si hay datos, 204 si no hay ninguno.
-	 */
-	@GetMapping("/mostrarporfacultad")
-	@Operation(summary = "Obtener usuarios por facultad", description = "Retorna los usuarios que pertenecen a una facultad.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-		@ApiResponse(responseCode = "204", description = "No hay usuarios en esa facultad")
-	})
-	public ResponseEntity<List<UsuarioDTO>> obtenerPorFacultad(@RequestParam String facultad) {
-		List<UsuarioDTO> lista = usuarioServ.getByFacultad(facultad);
-		if (lista.isEmpty()) {
-			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Retorna el total de usuarios. 202 si hay registros, 204 si no hay ninguno.
-	 */
 	@GetMapping("/contar")
 	@Operation(summary = "Contar usuarios", description = "Retorna el numero total de usuarios registrados.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Conteo retornado exitosamente"),
-		@ApiResponse(responseCode = "204", description = "No hay usuarios registrados")
-	})
 	public ResponseEntity<Long> contar() {
-		Long count = usuarioServ.count();
+		long count = usuarioServ.count();
 		if (count == 0) {
 			return new ResponseEntity<>(count, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(count, HttpStatus.ACCEPTED);
 		}
+		return new ResponseEntity<>(count, HttpStatus.ACCEPTED);
 	}
 
-	/**
-	 * Verifica si existe un usuario por codigo. 202 si existe, 204 si no se encuentra.
-	 */
 	@GetMapping("/existe/{codigo}")
 	@Operation(summary = "Verificar existencia de usuario", description = "Verifica si existe un usuario con el codigo proporcionado.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Usuario encontrado"),
-		@ApiResponse(responseCode = "204", description = "Usuario no encontrado")
-	})
-	public ResponseEntity<Boolean> existe(@PathVariable Integer codigo) {
-		boolean encontrado = usuarioServ.exist(codigo);
-		if (encontrado) {
+	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
+		if (usuarioServ.exist(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
 		}
+		return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
 	}
 
-	/**
-	 * Actualiza un usuario por codigo. 202 exitoso, 404 no encontrado, 400 error.
-	 */
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar usuario", description = "Actualiza nombre, correo y facultad de un usuario por su codigo.")
+	@Operation(summary = "Actualizar usuario", description = "Actualiza nombre, correo y rol de un usuario por su codigo. La contrasena es opcional.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Usuario actualizado exitosamente"),
+		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
 		@ApiResponse(responseCode = "404", description = "Usuario no encontrado"),
-		@ApiResponse(responseCode = "400", description = "Error al actualizar (datos invalidos o correo de otro usuario)")
+		@ApiResponse(responseCode = "409", description = "Correo de otro usuario")
 	})
-	public ResponseEntity<String> actualizar(@RequestParam Integer codigo, @RequestParam String nombre,
-			@RequestParam String correo, @RequestParam String facultad) {
-		if (!usuarioServ.exist(codigo)) {
-			return new ResponseEntity<>("Usuario no encontrado", HttpStatus.NOT_FOUND);
-		}
-		UsuarioDTO nuevo = new UsuarioDTO(nombre, codigo, correo, facultad);
-		int status = usuarioServ.updateById(codigo, nuevo);
-		if (status == 0) {
+	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
+			@RequestParam String correo, @RequestParam String rol,
+			@RequestParam(required = false) String password) {
+		try {
+			UsuarioDTO nuevo = new UsuarioDTO();
+			nuevo.setId(id);
+			nuevo.setNombre(nombre);
+			nuevo.setCorreo(correo);
+			nuevo.setRol(rol);
+			nuevo.setPassword(password);
+			usuarioServ.updateById(id, nuevo);
 			return new ResponseEntity<>("Usuario actualizado exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al actualizar usuario", HttpStatus.BAD_REQUEST);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al actualizar usuario: " + e.getMessage(), estado(e));
+		}
+	}
+
+	@DeleteMapping("/eliminar/{codigo}")
+	@Operation(summary = "Eliminar usuario", description = "Elimina un usuario por su codigo.")
+	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Long id) {
+		try {
+			usuarioServ.deleteById(id);
+			return new ResponseEntity<>("Usuario eliminado exitosamente", HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), estado(e));
 		}
 	}
 
 	/**
-	 * Elimina un usuario por codigo. 202 si fue exitoso, 404 si no se encontro.
+	 * Traduce la excepcion del service al codigo HTTP correspondiente.
+	 * @param e Excepcion capturada.
+	 * @return Retorna el codigo HTTP.
 	 */
-	@DeleteMapping("/eliminar/{codigo}")
-	@Operation(summary = "Eliminar usuario", description = "Elimina un usuario por su codigo.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Usuario eliminado exitosamente"),
-		@ApiResponse(responseCode = "404", description = "Usuario no encontrado")
-	})
-	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Integer codigo) {
-		int status = usuarioServ.deleteById(codigo);
-		if (status == 0) {
-			return new ResponseEntity<>("Usuario eliminado exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al eliminar", HttpStatus.NOT_FOUND);
+	public HttpStatus estado(RuntimeException e) {
+		if (e instanceof RecursoNoEncontradoException) {
+			return HttpStatus.NOT_FOUND;
 		}
+		if (e instanceof RecursoDuplicadoException) {
+			return HttpStatus.CONFLICT;
+		}
+		return HttpStatus.BAD_REQUEST;
 	}
 }
