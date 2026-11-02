@@ -1,54 +1,64 @@
 package co.edu.unbosque.sdgh.entity;
 
-import java.time.LocalTime;
 import java.util.Objects;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
+/**
+ * Entidad que representa un grupo de un curso (RF2). El numero de grupo
+ * define el bloque: el grupo 01 de todos los cursos de un semestre forma un
+ * horario sin cruces (RF6). El dia y las horas de clase estan en las sesiones
+ * del grupo (entidad Sesion).
+ */
 @Entity
-@Table(name = "grupos")
+@Table(name = "grupos", uniqueConstraints = {
+		@UniqueConstraint(columnNames = { "materiaId", "numeroGrupo" }) })
 public class Grupo {
 
-    @Id
-    private int idGrupo;
+	/**
+	 * Identificador unico del grupo.
+	 */
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private long id;
 
-    private long materiaId;
-    private long docenteId;
-    private long aulaId;
+	/**
+	 * Codigo de la materia (curso) a la que pertenece el grupo.
+	 */
+	private long materiaId;
 
-    private int cupoMaximo;
-    private int estudiantesInscritos;
+	/**
+	 * Numero del grupo dentro del curso. Define el bloque (01, 02...).
+	 */
+	private int numeroGrupo;
 
-    private String diaSemana;          
-    private LocalTime horaInicio;
-    private LocalTime horaFin;
-
-	public Grupo(int idGrupo, long materiaId, long docenteId, long aulaId, int cupoMaximo, int estudiantesInscritos,
-			String diaSemana, LocalTime horaInicio, LocalTime horaFin) {
-		super();
-		this.idGrupo = idGrupo;
-		this.materiaId = materiaId;
-		this.docenteId = docenteId;
-		this.aulaId = aulaId;
-		this.cupoMaximo = cupoMaximo;
-		this.estudiantesInscritos = estudiantesInscritos;
-		this.diaSemana = diaSemana;
-		this.horaInicio = horaInicio;
-		this.horaFin = horaFin;
-	}
+	/**
+	 * Cupo planeado del grupo. Maximo 40 mas 10 % de tolerancia (RF2).
+	 */
+	private int cupoPlaneado;
 
 	public Grupo() {
 		super();
 	}
 
-	public int getIdGrupo() {
-		return idGrupo;
+	public Grupo(long materiaId, int numeroGrupo, int cupoPlaneado) {
+		super();
+		this.materiaId = materiaId;
+		this.numeroGrupo = numeroGrupo;
+		this.cupoPlaneado = cupoPlaneado;
 	}
 
-	public void setIdGrupo(int idGrupo) {
-		this.idGrupo = idGrupo;
+	public long getId() {
+		return id;
+	}
+
+	public void setId(long id) {
+		this.id = id;
 	}
 
 	public long getMateriaId() {
@@ -59,74 +69,31 @@ public class Grupo {
 		this.materiaId = materiaId;
 	}
 
-	public long getDocenteId() {
-		return docenteId;
+	public int getNumeroGrupo() {
+		return numeroGrupo;
 	}
 
-	public void setDocenteId(long docenteId) {
-		this.docenteId = docenteId;
+	public void setNumeroGrupo(int numeroGrupo) {
+		this.numeroGrupo = numeroGrupo;
 	}
 
-	public long getAulaId() {
-		return aulaId;
+	public int getCupoPlaneado() {
+		return cupoPlaneado;
 	}
 
-	public void setAulaId(long aulaId) {
-		this.aulaId = aulaId;
-	}
-
-	public int getCupoMaximo() {
-		return cupoMaximo;
-	}
-
-	public void setCupoMaximo(int cupoMaximo) {
-		this.cupoMaximo = cupoMaximo;
-	}
-
-	public int getEstudiantesInscritos() {
-		return estudiantesInscritos;
-	}
-
-	public void setEstudiantesInscritos(int estudiantesInscritos) {
-		this.estudiantesInscritos = estudiantesInscritos;
-	}
-
-	public String getDiaSemana() {
-		return diaSemana;
-	}
-
-	public void setDiaSemana(String diaSemana) {
-		this.diaSemana = diaSemana;
-	}
-
-	public LocalTime getHoraInicio() {
-		return horaInicio;
-	}
-
-	public void setHoraInicio(LocalTime horaInicio) {
-		this.horaInicio = horaInicio;
-	}
-
-	public LocalTime getHoraFin() {
-		return horaFin;
-	}
-
-	public void setHoraFin(LocalTime horaFin) {
-		this.horaFin = horaFin;
+	public void setCupoPlaneado(int cupoPlaneado) {
+		this.cupoPlaneado = cupoPlaneado;
 	}
 
 	@Override
 	public String toString() {
-		return "Grupo [idGrupo=" + idGrupo + ", materiaId=" + materiaId + ", docenteId=" + docenteId + ", aulaId="
-				+ aulaId + ", cupoMaximo=" + cupoMaximo + ", estudiantesInscritos=" + estudiantesInscritos
-				+ ", diaSemana=" + diaSemana + ", horaInicio=" + horaInicio + ", horaFin=" + horaFin + "]";
+		return "Grupo [id=" + id + ", materiaId=" + materiaId + ", numeroGrupo=" + numeroGrupo + ", cupoPlaneado="
+				+ cupoPlaneado + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Long.valueOf(aulaId), Integer.valueOf(cupoMaximo), diaSemana, Long.valueOf(docenteId),
-				Integer.valueOf(estudiantesInscritos), horaFin, horaInicio, Integer.valueOf(idGrupo),
-				Long.valueOf(materiaId));
+		return Objects.hash(Integer.valueOf(cupoPlaneado), id, Long.valueOf(materiaId), Integer.valueOf(numeroGrupo));
 	}
 
 	@Override
@@ -138,10 +105,8 @@ public class Grupo {
 		if (getClass() != obj.getClass())
 			return false;
 		Grupo other = (Grupo) obj;
-		return aulaId == other.aulaId && cupoMaximo == other.cupoMaximo && Objects.equals(diaSemana, other.diaSemana)
-				&& docenteId == other.docenteId && estudiantesInscritos == other.estudiantesInscritos
-				&& Objects.equals(horaFin, other.horaFin) && Objects.equals(horaInicio, other.horaInicio)
-				&& idGrupo == other.idGrupo && materiaId == other.materiaId;
-	}         
-    
+		return cupoPlaneado == other.cupoPlaneado && Objects.equals(id, other.id) && materiaId == other.materiaId
+				&& numeroGrupo == other.numeroGrupo;
+	}
+
 }

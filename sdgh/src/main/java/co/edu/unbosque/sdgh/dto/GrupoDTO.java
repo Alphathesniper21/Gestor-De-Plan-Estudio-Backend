@@ -1,52 +1,43 @@
 package co.edu.unbosque.sdgh.dto;
 
-import java.time.LocalTime;
 import java.util.Objects;
 
 public class GrupoDTO {
 
-	private int idGrupo;
+	private Long id;
 
+	/**
+	 * Codigo de la materia (curso) a la que pertenece el grupo.
+	 */
 	private long materiaId;
 
-	private long docenteId;
+	/**
+	 * Numero del grupo dentro del curso. Define el bloque (01, 02...).
+	 */
+	private int numeroGrupo;
 
-	private long aulaId;
-
-	private int cupoMaximo;
-
-	private int estudiantesInscritos;
-
-	private String diaSemana;
-
-	private LocalTime horaInicio;
-
-	private LocalTime horaFin;
-
+	/**
+	 * Cupo planeado del grupo. Maximo 40 mas 10 % de tolerancia (RF2).
+	 */
+	private int cupoPlaneado;
+	
 	public GrupoDTO() {
+		// TODO Auto-generated constructor stub
 	}
 
-	public GrupoDTO(int idGrupo, long materiaId, long docenteId,
-			long aulaId, int cupoMaximo, int estudiantesInscritos,
-			String diaSemana, LocalTime horaInicio, LocalTime horaFin) {
+	public GrupoDTO(long materiaId, int numeroGrupo, int cupoPlaneado) {
 		super();
-		this.idGrupo = idGrupo;
 		this.materiaId = materiaId;
-		this.docenteId = docenteId;
-		this.aulaId = aulaId;
-		this.cupoMaximo = cupoMaximo;
-		this.estudiantesInscritos = estudiantesInscritos;
-		this.diaSemana = diaSemana;
-		this.horaInicio = horaInicio;
-		this.horaFin = horaFin;
+		this.numeroGrupo = numeroGrupo;
+		this.cupoPlaneado = cupoPlaneado;
 	}
 
-	public int getIdGrupo() {
-		return idGrupo;
+	public Long getId() {
+		return id;
 	}
 
-	public void setIdGrupo(int idGrupo) {
-		this.idGrupo = idGrupo;
+	public void setId(Long id) {
+		this.id = id;
 	}
 
 	public long getMateriaId() {
@@ -57,87 +48,44 @@ public class GrupoDTO {
 		this.materiaId = materiaId;
 	}
 
-	public long getDocenteId() {
-		return docenteId;
+	public int getNumeroGrupo() {
+		return numeroGrupo;
 	}
 
-	public void setDocenteId(long docenteId) {
-		this.docenteId = docenteId;
+	public void setNumeroGrupo(int numeroGrupo) {
+		this.numeroGrupo = numeroGrupo;
 	}
 
-	public long getAulaId() {
-		return aulaId;
+	public int getCupoPlaneado() {
+		return cupoPlaneado;
 	}
 
-	public void setAulaId(long aulaId) {
-		this.aulaId = aulaId;
-	}
-
-	public int getCupoMaximo() {
-		return cupoMaximo;
-	}
-
-	public void setCupoMaximo(int cupoMaximo) {
-		this.cupoMaximo = cupoMaximo;
-	}
-
-	public int getEstudiantesInscritos() {
-		return estudiantesInscritos;
-	}
-
-	public void setEstudiantesInscritos(int estudiantesInscritos) {
-		this.estudiantesInscritos = estudiantesInscritos;
-	}
-
-	public String getDiaSemana() {
-		return diaSemana;
-	}
-
-	public void setDiaSemana(String diaSemana) {
-		this.diaSemana = diaSemana;
-	}
-
-	public LocalTime getHoraInicio() {
-		return horaInicio;
-	}
-
-	public void setHoraInicio(LocalTime horaInicio) {
-		this.horaInicio = horaInicio;
-	}
-
-	public LocalTime getHoraFin() {
-		return horaFin;
-	}
-
-	public void setHoraFin(LocalTime horaFin) {
-		this.horaFin = horaFin;
+	public void setCupoPlaneado(int cupoPlaneado) {
+		this.cupoPlaneado = cupoPlaneado;
 	}
 
 	@Override
 	public String toString() {
-		return "GrupoDTO [" + "idGrupo=" + idGrupo + ", materiaId=" + materiaId + ", docenteId=" + docenteId
-			+ ", aulaId=" + aulaId + ", cupoMaximo=" + cupoMaximo + ", estudiantesInscritos="
-			+ estudiantesInscritos + ", diaSemana=" + diaSemana + ", horaInicio=" + horaInicio
-			+ ", horaFin=" + horaFin + "]";
+		return "GrupoDTO [id=" + id + ", materiaId=" + materiaId + ", numeroGrupo=" + numeroGrupo + ", cupoPlaneado="
+				+ cupoPlaneado + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(aulaId, cupoMaximo, diaSemana, docenteId, estudiantesInscritos, horaFin, horaInicio, idGrupo, materiaId);
+		return Objects.hash(Integer.valueOf(cupoPlaneado), id, Long.valueOf(materiaId), Integer.valueOf(numeroGrupo));
 	}
 
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
 			return true;
-		if (obj == null || getClass() != obj.getClass())
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
 			return false;
 		GrupoDTO other = (GrupoDTO) obj;
-		return idGrupo == other.idGrupo && materiaId == other.materiaId
-				&& docenteId == other.docenteId && aulaId == other.aulaId
-				&& cupoMaximo == other.cupoMaximo && estudiantesInscritos == other.estudiantesInscritos
-				&& Objects.equals(diaSemana, other.diaSemana) && Objects.equals(horaInicio, other.horaInicio)
-				&& Objects.equals(horaFin, other.horaFin);
+		return cupoPlaneado == other.cupoPlaneado && Objects.equals(id, other.id) && materiaId == other.materiaId
+				&& numeroGrupo == other.numeroGrupo;
 	}
 
 }

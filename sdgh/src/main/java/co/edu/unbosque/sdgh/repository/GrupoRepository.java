@@ -4,6 +4,8 @@
 package co.edu.unbosque.sdgh.repository;
 
 import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.repository.CrudRepository;
 
 import co.edu.unbosque.sdgh.entity.Grupo;
@@ -12,7 +14,7 @@ import co.edu.unbosque.sdgh.entity.Grupo;
  * Repositorio de la entidad Grupo.
  * Gestiona la persistencia y consulta de los grupos (secciones) de cada materia.
  */
-public interface GrupoRepository extends CrudRepository<Grupo, Integer> {
+public interface GrupoRepository extends CrudRepository<Grupo, Long> {
 
 	/**
 	 * Busca todos los grupos de una materia.
@@ -22,20 +24,11 @@ public interface GrupoRepository extends CrudRepository<Grupo, Integer> {
 	 */
 	List<Grupo> findByMateriaId(long materiaId);
 
-	/**
-	 * Busca todos los grupos asignados a un docente.
-	 *
-	 * @param docenteId ID del docente.
-	 * @return Lista de grupos del docente.
-	 */
-	List<Grupo> findByDocenteId(long docenteId);
+	List<Grupo> findByNumeroGrupo(int numeroGrupo);
 
-	/**
-	 * Busca todos los grupos asignados a un aula.
-	 *
-	 * @param aulaId ID del aula.
-	 * @return Lista de grupos del aula.
-	 */
-	List<Grupo> findByAulaId(long aulaId);
+	Optional<Grupo> findByMateriaIdAndNumeroGrupo(long materiaId, int numeroGrupo);
 
+	boolean existsByMateriaIdAndNumeroGrupo(long materiaId, int numeroGrupo);
+	
+	Optional<Grupo> findById(Long id);
 }

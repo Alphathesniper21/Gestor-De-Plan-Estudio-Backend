@@ -3,15 +3,18 @@ package co.edu.unbosque.sdgh.entity;
 import java.util.Objects;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 
 @Entity
-@Table(name = "materias")
+@Table(name = "materia")
 public class Materia {
 
-	@Id
-	private long codigo;
+	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+	private long id;
 
 	private String nombre;
 	private int semestre;
@@ -19,9 +22,12 @@ public class Materia {
 	private int horasDeLaMateria;
 	private boolean correlativa;
 
-	public Materia(long codigo, String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
+	public Materia() {
 		super();
-		this.codigo = codigo;
+	}
+	
+	public Materia(String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
+		super();
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
@@ -29,16 +35,12 @@ public class Materia {
 		this.correlativa = correlativa;
 	}
 
-	public Materia() {
-		super();
+	public long getId() {
+		return id;
 	}
 
-	public long getCodigo() {
-		return codigo;
-	}
-
-	public void setCodigo(long codigo) {
-		this.codigo = codigo;
+	public void setId(long id) {
+		this.id = id;
 	}
 
 	public String getNombre() {
@@ -80,16 +82,26 @@ public class Materia {
 	public void setCorrelativa(boolean correlativa) {
 		this.correlativa = correlativa;
 	}
+	
+	/**
+	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las horas
+	 * de la materia, porque cada sesion dura 2 horas (RF3, RF7).
+	 * @return Retorna el numero de sesiones semanales.
+	 */
+	@Transient
+	public int getSesionesSemanales() {
+		return horasDeLaMateria / 2;
+	}
 
 	@Override
 	public String toString() {
-		return "Materia [codigo=" + codigo + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos="
-				+ ncreditos + ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
+		return "Materia [id=" + id + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
+				+ ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Long.valueOf(codigo), Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria),
+		return Objects.hash(Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
 				Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
 	}
 
@@ -102,8 +114,7 @@ public class Materia {
 		if (getClass() != obj.getClass())
 			return false;
 		Materia other = (Materia) obj;
-		return codigo == other.codigo && correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria
+		return correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
 				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
 	}
-
 }
