@@ -235,7 +235,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	 * @return Retorna true si el grupo existe o false en caso contrario.
 	 */
 	@Override
-	public boolean exist(Long id) {
+	public boolean existById(Long id) {
 
 		return id != null && grupoRepo.existsById(id);
 	}

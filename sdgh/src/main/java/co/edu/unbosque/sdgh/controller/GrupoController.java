@@ -63,11 +63,11 @@ public class GrupoController {
 		@ApiResponse(responseCode = "406", description = "Cupo por encima del limite institucional"),
 		@ApiResponse(responseCode = "409", description = "La materia ya tiene ese numero de grupo")
 	})
-	public ResponseEntity<String> crear(@RequestParam long id, @RequestParam int numeroGrupo,
+	public ResponseEntity<String> crear(@RequestParam long materiaId, @RequestParam int numeroGrupo,
 			@RequestParam int cupoPlaneado) {
 		try {
 			GrupoDTO nuevo = new GrupoDTO();
-			nuevo.setMateriaId(id);
+			nuevo.setMateriaId(materiaId);
 			nuevo.setNumeroGrupo(numeroGrupo);
 			nuevo.setCupoPlaneado(cupoPlaneado);
 			grupoServ.create(nuevo);
@@ -161,7 +161,7 @@ public class GrupoController {
 		@ApiResponse(responseCode = "204", description = "Grupo no encontrado")
 	})
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
-		if (grupoServ.exist(id)) {
+		if (grupoServ.existById(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
 		}
 		return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);

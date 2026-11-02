@@ -130,9 +130,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		String correo = data.getCorreo().trim();
 		String username = data.getUsername().trim();
 
-		if (usuarioRepo.existsById(data.getId())) {
-			throw new RecursoDuplicadoException("Ya existe un usuario con el codigo " + data.getId());
-		}
 		if (usuarioRepo.existsByCorreo(correo)) {
 			throw new RecursoDuplicadoException("Ya existe un usuario con el correo " + correo);
 		}
@@ -298,7 +295,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	 * @return true si existe, false en caso contrario.
 	 */
 	@Override
-	public boolean exist(Long id) {
+	public boolean existById(Long id) {
 
 		return id != null && usuarioRepo.existsById(id);
 	}

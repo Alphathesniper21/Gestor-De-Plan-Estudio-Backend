@@ -118,7 +118,7 @@ public class UsuarioController {
 	@GetMapping("/existe/{codigo}")
 	@Operation(summary = "Verificar existencia de usuario", description = "Verifica si existe un usuario con el codigo proporcionado.")
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
-		if (usuarioServ.exist(id)) {
+		if (usuarioServ.existById(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
 		}
 		return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
