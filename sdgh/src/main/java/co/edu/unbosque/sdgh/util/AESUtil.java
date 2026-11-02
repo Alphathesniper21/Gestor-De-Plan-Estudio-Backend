@@ -1,183 +1,180 @@
 package co.edu.unbosque.sdgh.util;
 
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
+import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
 import java.util.Base64;
-import javax.crypto.BadPaddingException;
+import java.util.HexFormat;
+
 import javax.crypto.Cipher;
-import javax.crypto.IllegalBlockSizeException;
-import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
  * Clase de utilidad para operaciones de cifrado AES y funciones de hash.
  *
- * Proporciona métodos para cifrar y descifrar texto usando AES en modo GCM,
- * así como métodos para generar hashes usando varios algoritmos
- * (MD5, SHA-1, SHA-256, SHA-384, SHA-512).
+ * Cifra y descifra texto usando AES en modo GCM. La clave no esta en el
+ * codigo: se lee de la variable de entorno AES_KEY (o de la propiedad del
+ * sistema aes.key) y debe tener exactamente 16, 24 o 32 caracteres. Cada
+ * cifrado genera un IV aleatorio de 12 bytes que se antepone al texto
+ * cifrado, por lo que el resultado cambia en cada llamada.
  *
- * Utiliza únicamente APIs nativas de Java ({@code javax.crypto},
- * {@code java.security}, {@code java.util.Base64}) sin dependencias externas.
+ * Tambien genera hashes (MD5, SHA-1, SHA-256, SHA-384, SHA-512).
+ * Utiliza unicamente APIs nativas de Java, sin dependencias externas.
  */
 public class AESUtil {
 
-	 /** Algoritmo de cifrado simétrico utilizado. */
-    private static final String ALGORITMO = "AES";
+	/** Algoritmo de cifrado simetrico utilizado. */
+	private static final String ALGORITMO = "AES";
 
-    /** Transformación completa: algoritmo / modo / padding. */
-    private static final String TIPO_CIFRADO = "AES/GCM/NoPadding";
+	/** Transformacion completa: algoritmo / modo / padding. */
+	private static final String TIPO_CIFRADO = "AES/GCM/NoPadding";
 
-    /** Longitud del tag de autenticación GCM en bits. */
-    private static final int GCM_TAG_LENGTH = 128;
+	/** Longitud del tag de autenticacion GCM en bits. */
+	private static final int GCM_TAG_LENGTH = 128;
 
-    /** Clave predeterminada de 16 bytes (AES-128). */
-    private static final String DEFAULT_KEY = "llavede16carater";
+	/** Longitud del IV en bytes (recomendado para GCM). */
+	private static final int IV_LENGTH = 12;
 
-    /** Vector de inicialización predeterminado de 16 bytes. */
-    private static final String DEFAULT_IV = "programacioncomp";
+	/** Generador de numeros aleatorios seguro para los IV. */
+	private static final SecureRandom RANDOM = new SecureRandom();
 
+	/**
+	 * Obtiene la clave desde la variable de entorno AES_KEY o, si no existe,
+	 * desde la propiedad del sistema aes.key.
+	 *
+	 * @return Clave de cifrado.
+	 * @throws IllegalStateException si la clave no esta configurada.
+	 */
+	private static String obtenerLlave() {
+		String llave = System.getenv("AES_KEY");
+		if (llave == null || llave.isBlank()) {
+			llave = System.getProperty("aes.key");
+		}
+		if (llave == null || llave.isBlank()) {
+			throw new IllegalStateException("Falta la clave AES: defina la variable de entorno AES_KEY");
+		}
+		return llave;
+	}
 
-    /**
-     * Cifra un texto utilizando AES-128 en modo GCM sin padding.
-     *
-     * @param llave  Clave de cifrado (debe tener exactamente 16 caracteres para AES-128).
-     * @param iv     Vector de inicialización (debe tener exactamente 16 caracteres).
-     * @param texto  Texto plano a cifrar.
-     * @return Texto cifrado codificado en Base64, o cadena vacía si ocurre un error.
-     */
-    public static String encrypt(String llave, String iv, String texto) {
-        try {
-            Cipher cipher = Cipher.getInstance(TIPO_CIFRADO);
-            SecretKeySpec secretKeySpec = new SecretKeySpec(llave.getBytes(), ALGORITMO);
-            GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv.getBytes());
-            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec, gcmParameterSpec);
-            byte[] encrypted = cipher.doFinal(texto.getBytes());
-            return Base64.getEncoder().encodeToString(encrypted);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidKeyException | InvalidAlgorithmParameterException
-                | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-            return "";
-        }
-    }
+	/**
+	 * Cifra un texto con AES/GCM usando la clave configurada.
+	 *
+	 * @param texto Texto plano a cifrar.
+	 * @return Base64 de (IV + texto cifrado).
+	 * @throws IllegalStateException si falla el cifrado o la clave es invalida.
+	 */
+	public static String encrypt(String texto) {
+		try {
+			byte[] iv = new byte[IV_LENGTH];
+			RANDOM.nextBytes(iv);
 
-    /**
-     * Descifra un texto cifrado con AES-128 en modo GCM.
-     *
-     * @param llave     Clave de cifrado (debe ser la misma utilizada al cifrar).
-     * @param iv        Vector de inicialización (debe ser el mismo utilizado al cifrar).
-     * @param encrypted Texto cifrado en formato Base64.
-     * @return Texto descifrado en claro, o cadena vacía si ocurre un error.
-     */
-    public static String decrypt(String llave, String iv, String encrypted) {
-        try {
-            Cipher cipher = Cipher.getInstance(TIPO_CIFRADO);
-            SecretKeySpec secretKeySpec = new SecretKeySpec(llave.getBytes(), ALGORITMO);
-            GCMParameterSpec gcmParameterSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv.getBytes());
-            cipher.init(Cipher.DECRYPT_MODE, secretKeySpec, gcmParameterSpec);
-            byte[] enc = Base64.getDecoder().decode(encrypted);
-            byte[] decrypted = cipher.doFinal(enc);
-            return new String(decrypted);
-        } catch (NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidKeyException | InvalidAlgorithmParameterException
-                | IllegalBlockSizeException | BadPaddingException e) {
-            e.printStackTrace();
-            return "";
-        }
-    }
+			SecretKeySpec key = new SecretKeySpec(obtenerLlave().getBytes(StandardCharsets.UTF_8), ALGORITMO);
+			Cipher cipher = Cipher.getInstance(TIPO_CIFRADO);
+			cipher.init(Cipher.ENCRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
+			byte[] cifrado = cipher.doFinal(texto.getBytes(StandardCharsets.UTF_8));
 
-    /**
-     * Cifra un texto usando la clave y el IV predeterminados del proyecto.
-     *
-     * @param plainText Texto plano a cifrar.
-     * @return Texto cifrado en formato Base64.
-     */
-    public static String encrypt(String plainText) {
-        return encrypt(DEFAULT_KEY, DEFAULT_IV, plainText);
-    }
+			byte[] resultado = new byte[iv.length + cifrado.length];
+			System.arraycopy(iv, 0, resultado, 0, iv.length);
+			System.arraycopy(cifrado, 0, resultado, iv.length, cifrado.length);
+			return Base64.getEncoder().encodeToString(resultado);
+		} catch (GeneralSecurityException e) {
+			throw new IllegalStateException("No se pudo cifrar el texto: " + e.getMessage(), e);
+		}
+	}
 
-    /**
-     * Descifra un texto usando la clave y el IV predeterminados del proyecto.
-     *
-     * @param encrypted Texto cifrado en formato Base64.
-     * @return Texto descifrado en claro.
-     */
-    public static String decrypt(String encrypted) {
-        return decrypt(DEFAULT_KEY, DEFAULT_IV, encrypted);
-    }
+	/**
+	 * Descifra un texto generado por {@link #encrypt(String)}.
+	 *
+	 * @param encrypted Base64 de (IV + texto cifrado).
+	 * @return Texto plano descifrado.
+	 * @throws IllegalStateException si el texto fue alterado, no corresponde a
+	 *         la clave o la clave es invalida.
+	 */
+	public static String decrypt(String encrypted) {
+		try {
+			byte[] datos = Base64.getDecoder().decode(encrypted);
+			if (datos.length <= IV_LENGTH) {
+				throw new IllegalStateException("El texto cifrado es invalido");
+			}
 
-    /**
-     * Genera un hash del contenido usando el algoritmo especificado.
-     *
-     * @param content   Texto a convertir en hash.
-     * @param algorithm Nombre del algoritmo (p. ej. "MD5", "SHA-1", "SHA-256").
-     * @return Representación hexadecimal del hash, o cadena vacía si el algoritmo no existe.
-     */
-    public static String hash(String content, String algorithm) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance(algorithm);
-            byte[] hashBytes = digest.digest(content.getBytes());
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hashBytes) {
-                sb.append(String.format("%02x", b));
-            }
-            return sb.toString();
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-            return "";
-        }
-    }
+			byte[] iv = new byte[IV_LENGTH];
+			byte[] cifrado = new byte[datos.length - IV_LENGTH];
+			System.arraycopy(datos, 0, iv, 0, IV_LENGTH);
+			System.arraycopy(datos, IV_LENGTH, cifrado, 0, cifrado.length);
 
-    /**
-     * Genera un hash MD5 del contenido proporcionado.
-     *
-     * @param content Texto a convertir en hash.
-     * @return Representación hexadecimal del hash MD5 (32 caracteres).
-     */
-    public static String hashingToMD5(String content) {
-        return hash(content, "MD5");
-    }
+			SecretKeySpec key = new SecretKeySpec(obtenerLlave().getBytes(StandardCharsets.UTF_8), ALGORITMO);
+			Cipher cipher = Cipher.getInstance(TIPO_CIFRADO);
+			cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(GCM_TAG_LENGTH, iv));
+			return new String(cipher.doFinal(cifrado), StandardCharsets.UTF_8);
+		} catch (GeneralSecurityException | IllegalArgumentException e) {
+			throw new IllegalStateException("No se pudo descifrar el texto: " + e.getMessage(), e);
+		}
+	}
 
-    /**
-     * Genera un hash SHA-1 del contenido proporcionado.
-     *
-     * @param content Texto a convertir en hash.
-     * @return Representación hexadecimal del hash SHA-1 (40 caracteres).
-     */
-    public static String hashingToSHA1(String content) {
-        return hash(content, "SHA-1");
-    }
+	/**
+	 * Genera un hash del contenido usando el algoritmo especificado.
+	 *
+	 * @param content Texto a convertir en hash.
+	 * @param algorithm Nombre del algoritmo (p. ej. "MD5", "SHA-1", "SHA-256").
+	 * @return Representacion hexadecimal del hash, o cadena vacia si el
+	 *         algoritmo no existe.
+	 */
+	public static String hash(String content, String algorithm) {
+		try {
+			MessageDigest digest = MessageDigest.getInstance(algorithm);
+			byte[] hashBytes = digest.digest(content.getBytes(StandardCharsets.UTF_8));
+			return HexFormat.of().formatHex(hashBytes);
+		} catch (NoSuchAlgorithmException e) {
+			e.printStackTrace();
+			return "";
+		}
+	}
 
-    /**
-     * Genera un hash SHA-256 del contenido proporcionado.
-     *
-     * @param content Texto a convertir en hash.
-     * @return Representación hexadecimal del hash SHA-256 (64 caracteres).
-     */
-    public static String hashingToSHA256(String content) {
-        return hash(content, "SHA-256");
-    }
+	/**
+	 * Genera un hash MD5 del contenido (32 caracteres).
+	 * @param content Texto a convertir en hash.
+	 * @return Hash en hexadecimal.
+	 */
+	public static String hashingToMD5(String content) {
+		return hash(content, "MD5");
+	}
 
-    /**
-     * Genera un hash SHA-384 del contenido proporcionado.
-     *
-     * @param content Texto a convertir en hash.
-     * @return Representación hexadecimal del hash SHA-384 (96 caracteres).
-     */
-    public static String hashingToSHA384(String content) {
-        return hash(content, "SHA-384");
-    }
+	/**
+	 * Genera un hash SHA-1 del contenido (40 caracteres).
+	 * @param content Texto a convertir en hash.
+	 * @return Hash en hexadecimal.
+	 */
+	public static String hashingToSHA1(String content) {
+		return hash(content, "SHA-1");
+	}
 
-    /**
-     * Genera un hash SHA-512 del contenido proporcionado.
-     *
-     * @param content Texto a convertir en hash.
-     * @return Representación hexadecimal del hash SHA-512 (128 caracteres).
-     */
-    public static String hashingToSHA512(String content) {
-        return hash(content, "SHA-512");
-    }
+	/**
+	 * Genera un hash SHA-256 del contenido (64 caracteres).
+	 * @param content Texto a convertir en hash.
+	 * @return Hash en hexadecimal.
+	 */
+	public static String hashingToSHA256(String content) {
+		return hash(content, "SHA-256");
+	}
+
+	/**
+	 * Genera un hash SHA-384 del contenido (96 caracteres).
+	 * @param content Texto a convertir en hash.
+	 * @return Hash en hexadecimal.
+	 */
+	public static String hashingToSHA384(String content) {
+		return hash(content, "SHA-384");
+	}
+
+	/**
+	 * Genera un hash SHA-512 del contenido (128 caracteres).
+	 * @param content Texto a convertir en hash.
+	 * @return Hash en hexadecimal.
+	 */
+	public static String hashingToSHA512(String content) {
+		return hash(content, "SHA-512");
+	}
 }
