@@ -19,23 +19,12 @@ import co.edu.unbosque.sdgh.repository.UsuarioRepository;
 /**
  * Servicio que gestiona la logica de negocio de los usuarios del sistema:
  * registro, consulta, actualizacion y eliminacion. Las contrasenas se
- * almacenan con hash (RNF de seguridad). Las validaciones se hacen al inicio
- * de cada metodo y lanzan excepciones personalizadas que son capturadas en el
- * controlador. La conversion entre entidad y DTO se hace directamente con
- * ModelMapper.
+ * almacenan con hash (RNF de seguridad) y nunca se devuelven en los DTO. Las
+ * validaciones se hacen al inicio de cada metodo y lanzan excepciones
+ * personalizadas que son capturadas en el controlador.
  */
 @Service
 public class UsuarioService implements CRUDOperation<UsuarioDTO> {
-
-	/**
-	 * Rol que puede armar el horario.
-	 */
-	public static final String ROL_GESTOR = "GESTOR";
-
-	/**
-	 * Rol que solo consulta el horario.
-	 */
-	public static final String ROL_CONSULTA = "CONSULTA";
 
 	/**
 	 * Repositorio de usuarios.
@@ -68,12 +57,18 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	 * @param data DTO con los datos del usuario a registrar.
 	 * @return 0 si se registro con exito.
 	 * @throws DatosInvalidosException si los datos son nulos, incompletos o con
-	 *         formato invalido (incluye nombre de usuario y contrasena).
+	 *         formato invalido.
 	 * @throws RecursoDuplicadoException si el codigo, el correo o el nombre de
 	 *         usuario ya existen.
 	 */
 	@Override
 	public int create(UsuarioDTO data) {
+
+		String regexNombre = "[\\p{L} \\-]+";
+		String regexCorreo = "^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$";
+		String regexUsername = "[a-zA-Z0-9._\\-]+";
+		String rolGestor = "GESTOR";
+		String rolConsulta = "CONSULTA";
 
 		if (data == null) {
 			throw new DatosInvalidosException("Los datos del usuario no pueden ser nulos");
@@ -81,38 +76,35 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		if (data.getId() <= 0) {
 			throw new DatosInvalidosException("El codigo del usuario debe ser un numero positivo");
 		}
-		if (data.getNombre() == null || data.getNombre().trim().isEmpty()) {
+		if (data.getNombre() == null || data.getNombre().isBlank()) {
 			throw new DatosInvalidosException("El nombre no puede estar vacio");
 		}
-		if (data.getCorreo() == null || data.getCorreo().trim().isEmpty()) {
-			throw new DatosInvalidosException("El correo no puede estar vacio");
-		}
-		if (data.getRol() == null || data.getRol().trim().isEmpty()) {
-			throw new DatosInvalidosException("El rol no puede estar vacio");
-		}
-		if (!data.getNombre().trim().matches("[\\p{L} \\-]+")) {
+		if (!data.getNombre().trim().matches(regexNombre)) {
 			throw new DatosInvalidosException("El nombre solo puede contener letras, espacios y guiones");
 		}
-		if (!data.getCorreo().trim().matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
+		if (data.getCorreo() == null || data.getCorreo().isBlank()) {
+			throw new DatosInvalidosException("El correo no puede estar vacio");
+		}
+		if (!data.getCorreo().trim().matches(regexCorreo)) {
 			throw new DatosInvalidosException("El correo no tiene un formato valido (ej: usuario@dominio.com)");
 		}
-		if (!data.getRol().trim().equalsIgnoreCase(ROL_GESTOR)
-				&& !data.getRol().trim().equalsIgnoreCase(ROL_CONSULTA)) {
-			throw new DatosInvalidosException("El rol debe ser " + ROL_GESTOR + " o " + ROL_CONSULTA);
+		if (data.getRol() == null || data.getRol().isBlank()) {
+			throw new DatosInvalidosException("El rol no puede estar vacio");
 		}
-
-		if (data.getUsername() == null || data.getUsername().trim().isEmpty()) {
+		if (!data.getRol().trim().equalsIgnoreCase(rolGestor) && !data.getRol().trim().equalsIgnoreCase(rolConsulta)) {
+			throw new DatosInvalidosException("El rol debe ser " + rolGestor + " o " + rolConsulta);
+		}
+		if (data.getUsername() == null || data.getUsername().isBlank()) {
 			throw new DatosInvalidosException("El nombre de usuario no puede estar vacio");
 		}
 		if (data.getUsername().trim().length() < 4) {
 			throw new DatosInvalidosException("El nombre de usuario debe tener minimo 4 caracteres");
 		}
-		if (!data.getUsername().trim().matches("[a-zA-Z0-9._\\-]+")) {
+		if (!data.getUsername().trim().matches(regexUsername)) {
 			throw new DatosInvalidosException(
 					"El nombre de usuario solo puede contener letras, numeros, puntos, guiones y guiones bajos");
 		}
-
-		if (data.getPassword() == null || data.getPassword().isEmpty()) {
+		if (data.getPassword() == null || data.getPassword().isBlank()) {
 			throw new DatosInvalidosException("La contrasena no puede estar vacia");
 		}
 		if (data.getPassword().length() < 8) {
@@ -159,14 +151,15 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	@Override
 	public List<UsuarioDTO> getAll() {
 
+		List<Usuario> entityList = (List<Usuario>) usuarioRepo.findAll();
 		List<UsuarioDTO> dtoList = new ArrayList<>();
-		Iterable<Usuario> entities = usuarioRepo.findAll();
 
-		for (Usuario entity : entities) {
-			UsuarioDTO dto = mapper.map(entity, UsuarioDTO.class);
+		entityList.forEach((entidad) -> {
+
+			UsuarioDTO dto = mapper.map(entidad, UsuarioDTO.class);
 			dto.setPassword(null);
 			dtoList.add(dto);
-		}
+		});
 
 		return dtoList;
 	}
@@ -185,11 +178,11 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		if (id == null) {
 			throw new DatosInvalidosException("El codigo del usuario no puede ser nulo");
 		}
-		if (!usuarioRepo.existsById(id)) {
-			throw new RecursoNoEncontradoException("No existe un usuario con el codigo " + id);
-		}
 
-		usuarioRepo.deleteById(id);
+		Usuario encontrado = usuarioRepo.findById(id)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe un usuario con el codigo " + id));
+
+		usuarioRepo.delete(encontrado);
 		return 0;
 	}
 
@@ -198,7 +191,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	 * nueva, se valida y se guarda con hash; si viene vacia, se conserva la
 	 * actual. El nombre de usuario (login) no se modifica.
 	 *
-	 * @param id      Codigo del usuario a actualizar.
+	 * @param id Codigo del usuario a actualizar.
 	 * @param newData Nuevos datos del usuario.
 	 * @return 0 si se actualizo con exito.
 	 * @throws DatosInvalidosException si el codigo es nulo o los datos nuevos son
@@ -209,40 +202,42 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	@Override
 	public int updateById(Long id, UsuarioDTO newData) {
 
+		String regexNombre = "[\\p{L} \\-]+";
+		String regexCorreo = "^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$";
+		String rolGestor = "GESTOR";
+		String rolConsulta = "CONSULTA";
+
 		if (id == null) {
 			throw new DatosInvalidosException("El codigo del usuario no puede ser nulo");
 		}
 
-		Usuario entityToUpdate = usuarioRepo.findById(id)
+		Usuario temp = usuarioRepo.findById(id)
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe un usuario con el codigo " + id));
 
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos del usuario no pueden ser nulos");
 		}
-		if (newData.getId() <= 0) {
-			throw new DatosInvalidosException("El codigo del usuario debe ser un numero positivo");
-		}
-		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
+		if (newData.getNombre() == null || newData.getNombre().isBlank()) {
 			throw new DatosInvalidosException("El nombre no puede estar vacio");
 		}
-		if (newData.getCorreo() == null || newData.getCorreo().trim().isEmpty()) {
-			throw new DatosInvalidosException("El correo no puede estar vacio");
-		}
-		if (newData.getRol() == null || newData.getRol().trim().isEmpty()) {
-			throw new DatosInvalidosException("El rol no puede estar vacio");
-		}
-		if (!newData.getNombre().trim().matches("[\\p{L} \\-]+")) {
+		if (!newData.getNombre().trim().matches(regexNombre)) {
 			throw new DatosInvalidosException("El nombre solo puede contener letras, espacios y guiones");
 		}
-		if (!newData.getCorreo().trim().matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$")) {
+		if (newData.getCorreo() == null || newData.getCorreo().isBlank()) {
+			throw new DatosInvalidosException("El correo no puede estar vacio");
+		}
+		if (!newData.getCorreo().trim().matches(regexCorreo)) {
 			throw new DatosInvalidosException("El correo no tiene un formato valido (ej: usuario@dominio.com)");
 		}
-		if (!newData.getRol().trim().equalsIgnoreCase(ROL_GESTOR)
-				&& !newData.getRol().trim().equalsIgnoreCase(ROL_CONSULTA)) {
-			throw new DatosInvalidosException("El rol debe ser " + ROL_GESTOR + " o " + ROL_CONSULTA);
+		if (newData.getRol() == null || newData.getRol().isBlank()) {
+			throw new DatosInvalidosException("El rol no puede estar vacio");
+		}
+		if (!newData.getRol().trim().equalsIgnoreCase(rolGestor)
+				&& !newData.getRol().trim().equalsIgnoreCase(rolConsulta)) {
+			throw new DatosInvalidosException("El rol debe ser " + rolGestor + " o " + rolConsulta);
 		}
 
-		boolean cambiaContrasena = newData.getPassword() != null && !newData.getPassword().isEmpty();
+		boolean cambiaContrasena = newData.getPassword() != null && !newData.getPassword().isBlank();
 
 		if (cambiaContrasena) {
 			if (newData.getPassword().length() < 8) {
@@ -262,19 +257,19 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		String correo = newData.getCorreo().trim();
 		Optional<Usuario> porCorreo = usuarioRepo.findByCorreo(correo);
 
-		if (porCorreo.isPresent() && porCorreo.get().getId() != id.intValue()) {
+		if (porCorreo.isPresent() && porCorreo.get().getId() != id.longValue()) {
 			throw new RecursoDuplicadoException("El correo " + correo + " ya pertenece a otro usuario");
 		}
 
-		entityToUpdate.setNombre(newData.getNombre().trim());
-		entityToUpdate.setCorreo(correo);
-		entityToUpdate.setRol(newData.getRol().trim().toUpperCase());
+		temp.setNombre(newData.getNombre().trim());
+		temp.setCorreo(correo);
+		temp.setRol(newData.getRol().trim().toUpperCase());
 
 		if (cambiaContrasena) {
-			entityToUpdate.setPassword(passwordEncoder.encode(newData.getPassword()));
+			temp.setPassword(passwordEncoder.encode(newData.getPassword()));
 		}
 
-		usuarioRepo.save(entityToUpdate);
+		usuarioRepo.save(temp);
 		return 0;
 	}
 
@@ -302,7 +297,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Busca un usuario por su codigo unico.
+	 * Busca un usuario por su codigo.
 	 *
 	 * @param id Codigo del usuario.
 	 * @return {@link UsuarioDTO} del usuario encontrado, sin contrasena.
@@ -324,25 +319,23 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Busca un usuario por su nombre de usuario (credencial de login). Retorna
-	 * null si no existe.
+	 * Busca un usuario por su nombre de usuario (login).
 	 *
 	 * @param username Nombre de usuario.
-	 * @return {@link UsuarioDTO} sin contrasena, o null si no se encuentra.
+	 * @return {@link UsuarioDTO} sin contrasena.
+	 * @throws DatosInvalidosException si el nombre de usuario es nulo o esta vacio.
+	 * @throws RecursoNoEncontradoException si no existe un usuario con ese nombre.
 	 */
 	public UsuarioDTO getByUsername(String username) {
 
-		if (username == null || username.trim().isEmpty()) {
-			return null;
+		if (username == null || username.isBlank()) {
+			throw new DatosInvalidosException("El nombre de usuario no puede estar vacio");
 		}
 
-		Optional<Usuario> found = usuarioRepo.findByUsername(username.trim());
+		Usuario encontrado = usuarioRepo.findByUsername(username.trim()).orElseThrow(
+				() -> new RecursoNoEncontradoException("No existe un usuario con el nombre " + username.trim()));
 
-		if (found.isEmpty()) {
-			return null;
-		}
-
-		UsuarioDTO dto = mapper.map(found.get(), UsuarioDTO.class);
+		UsuarioDTO dto = mapper.map(encontrado, UsuarioDTO.class);
 		dto.setPassword(null);
 		return dto;
 	}
@@ -351,13 +344,13 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	 * Busca un usuario por su correo electronico.
 	 *
 	 * @param correo Correo institucional del usuario.
-	 * @return {@link UsuarioDTO} del usuario encontrado, sin contrasena.
+	 * @return {@link UsuarioDTO} sin contrasena.
 	 * @throws DatosInvalidosException si el correo es nulo o esta vacio.
 	 * @throws RecursoNoEncontradoException si no existe un usuario con ese correo.
 	 */
 	public UsuarioDTO getByCorreo(String correo) {
 
-		if (correo == null || correo.trim().isEmpty()) {
+		if (correo == null || correo.isBlank()) {
 			throw new DatosInvalidosException("El correo no puede estar vacio");
 		}
 
