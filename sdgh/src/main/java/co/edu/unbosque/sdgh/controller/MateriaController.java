@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,17 +39,17 @@ public class MateriaController {
 	/**
 	 * Crea una nueva materia. Retorna 201 si fue exitoso, 406 si hubo error.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
 	@Operation(summary = "Crear materia", description = "Crea una nueva materia. Requiere rol ADMINISTRADOR.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "201", description = "Materia creada exitosamente"),
 			@ApiResponse(responseCode = "406", description = "Error al crear materia (datos invalidos o duplicada)")
 	})
-	public ResponseEntity<String> crear(@RequestParam long codigo, @RequestParam String nombre,
+	public ResponseEntity<String> crear(@RequestParam String nombre,
 			@RequestParam int semestre, @RequestParam int ncreditos,
 			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
-		MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
 		int status = materiaService.create(nueva);
 		if (status == 0) {
 			return new ResponseEntity<>("Materia creada exitosamente", HttpStatus.CREATED);
@@ -179,14 +178,14 @@ public class MateriaController {
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada"),
 			@ApiResponse(responseCode = "400", description = "Error al actualizar")
 	})
-	public ResponseEntity<String> actualizar(@RequestParam Long codigo, @RequestParam String nombre,
+	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
 			@RequestParam int semestre, @RequestParam int ncreditos,
 			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
-		MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
-		if (!materiaService.existByCodigo(codigo)) {
+		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+		if (!materiaService.existByCodigo(id)) {
 			return new ResponseEntity<>("Materia no encontrada", HttpStatus.NOT_FOUND);
 		}
-		int status = materiaService.updateByCodigo(codigo, nueva);
+		int status = materiaService.updateByCodigo(id, nueva);
 		if (status == 0) {
 			return new ResponseEntity<>("Materia actualizada exitosamente", HttpStatus.ACCEPTED);
 		} else {

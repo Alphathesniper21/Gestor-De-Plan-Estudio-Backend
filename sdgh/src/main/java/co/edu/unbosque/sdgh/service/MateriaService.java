@@ -83,14 +83,14 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getHorasDeLaMateria() <= 0) {
 			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
-		if (newData.getCodigo() <= 0) {
+		if (newData.getId() <= 0) {
 			throw new DatosInvalidosException("El codigo de la materia debe ser un numero positivo");
 		}
 
 		String nombre = newData.getNombre().trim();
 
-		if (materiaRepo.existsById(newData.getCodigo())) {
-			throw new RecursoDuplicadoException("Ya existe una materia con el codigo " + newData.getCodigo());
+		if (materiaRepo.existsById(newData.getId())) {
+			throw new RecursoDuplicadoException("Ya existe una materia con el codigo " + newData.getId());
 		}
 		if (materiaRepo.findByNombre(nombre).isPresent()) {
 			throw new RecursoDuplicadoException("Ya existe una materia con el nombre " + nombre);
