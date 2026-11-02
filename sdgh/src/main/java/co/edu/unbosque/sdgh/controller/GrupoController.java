@@ -63,11 +63,11 @@ public class GrupoController {
 		@ApiResponse(responseCode = "406", description = "Cupo por encima del limite institucional"),
 		@ApiResponse(responseCode = "409", description = "La materia ya tiene ese numero de grupo")
 	})
-	public ResponseEntity<String> crear(@RequestParam long materiaId, @RequestParam int numeroGrupo,
+	public ResponseEntity<String> crear(@RequestParam long id, @RequestParam int numeroGrupo,
 			@RequestParam int cupoPlaneado) {
 		try {
 			GrupoDTO nuevo = new GrupoDTO();
-			nuevo.setMateriaId(materiaId);
+			nuevo.setMateriaId(id);
 			nuevo.setNumeroGrupo(numeroGrupo);
 			nuevo.setCupoPlaneado(cupoPlaneado);
 			grupoServ.create(nuevo);
@@ -122,9 +122,9 @@ public class GrupoController {
 		@ApiResponse(responseCode = "204", description = "La materia no tiene grupos"),
 		@ApiResponse(responseCode = "400", description = "Id de materia invalido")
 	})
-	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long materiaId) {
+	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long id) {
 		try {
-			List<GrupoDTO> lista = grupoServ.getByMateriaId(materiaId);
+			List<GrupoDTO> lista = grupoServ.getByMateriaId(id);
 			if (lista.isEmpty()) {
 				return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
 			}

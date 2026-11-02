@@ -3,10 +3,8 @@
  */
 package co.edu.unbosque.sdgh.repository;
 
-import java.util.List;
 import java.util.Optional;
 import org.springframework.data.repository.CrudRepository;
-
 import co.edu.unbosque.sdgh.entity.Usuario;
 
 /**
@@ -38,14 +36,6 @@ public interface UsuarioRepository extends CrudRepository<Usuario, Long> {
 	 * @return true si ya existe, false en caso contrario.
 	 */
 	boolean existsByCorreo(String correo);
-
-	/**
-	 * Busca los usuarios de una facultad.
-	 *
-	 * @param facultad La facultad a filtrar.
-	 * @return Lista de usuarios de la facultad.
-	 */
-	List<Usuario> findByFacultad(String facultad);
 	
 	/**
 	 * Verifica si ya existe un usuario con el username dado.

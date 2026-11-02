@@ -40,6 +40,7 @@ public class UsuarioDTO {
 	private String rol;
 
 	public UsuarioDTO() {
+		// TODO Auto-generated constructor stub
 	}
 
 	public UsuarioDTO(String nombre, String correo, String username, String password, String rol) {

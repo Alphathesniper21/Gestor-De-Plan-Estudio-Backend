@@ -45,6 +45,15 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	private ModelMapper mapper;
 
 	/**
+	 * Constante de rol de gestor
+	 */
+	private final String ROL_GESTOR= "GESTOR";
+	
+	/**
+	 * Constante de rol de consulta
+	 */
+	private final String ROL_CONSULTA= "CONSULTA";
+	/**
 	 * Constructor vacio de la clase UsuarioService.
 	 */
 	public UsuarioService() {
@@ -67,15 +76,13 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		String regexNombre = "[\\p{L} \\-]+";
 		String regexCorreo = "^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$";
 		String regexUsername = "[a-zA-Z0-9._\\-]+";
-		String rolGestor = "GESTOR";
-		String rolConsulta = "CONSULTA";
 
 		if (data == null) {
 			throw new DatosInvalidosException("Los datos del usuario no pueden ser nulos");
 		}
-		if (data.getId() <= 0) {
-			throw new DatosInvalidosException("El codigo del usuario debe ser un numero positivo");
-		}
+//		if (data.getId() <= 0) {
+//			throw new DatosInvalidosException("El codigo del usuario debe ser un numero positivo");
+//		}
 		if (data.getNombre() == null || data.getNombre().isBlank()) {
 			throw new DatosInvalidosException("El nombre no puede estar vacio");
 		}
@@ -91,8 +98,8 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		if (data.getRol() == null || data.getRol().isBlank()) {
 			throw new DatosInvalidosException("El rol no puede estar vacio");
 		}
-		if (!data.getRol().trim().equalsIgnoreCase(rolGestor) && !data.getRol().trim().equalsIgnoreCase(rolConsulta)) {
-			throw new DatosInvalidosException("El rol debe ser " + rolGestor + " o " + rolConsulta);
+		if (!data.getRol().trim().equalsIgnoreCase(ROL_GESTOR) && !data.getRol().trim().equalsIgnoreCase(ROL_CONSULTA)) {
+			throw new DatosInvalidosException("El rol debe ser " + ROL_GESTOR + " o " + ROL_CONSULTA);
 		}
 		if (data.getUsername() == null || data.getUsername().isBlank()) {
 			throw new DatosInvalidosException("El nombre de usuario no puede estar vacio");
@@ -361,4 +368,13 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		dto.setPassword(null);
 		return dto;
 	}
+
+	public String getROL_GESTOR() {
+		return ROL_GESTOR;
+	}
+
+	public String getROL_CONSULTA() {
+		return ROL_CONSULTA;
+	}
+	
 }
