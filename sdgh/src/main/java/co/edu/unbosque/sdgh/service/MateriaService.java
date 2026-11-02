@@ -13,20 +13,29 @@ import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
 import co.edu.unbosque.sdgh.entity.Materia;
-import co.edu.unbosque.sdgh.exception.EmptyFieldException;
-import co.edu.unbosque.sdgh.exception.InvalidNumberException;
-import co.edu.unbosque.sdgh.exception.LanzadorDeExcepcion;
-import co.edu.unbosque.sdgh.exception.NullDataException;
-import co.edu.unbosque.sdgh.exception.RecordAlreadyExistsException;
-import co.edu.unbosque.sdgh.exception.SubjectNotFoundException;
+import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
+import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
 
 /**
  * Servicio encargado de gestionar las operaciones CRUD de las materias del plan
- * de estudios (CU02 - RF01, RF26).
+ * de estudios (CU02 - RF01, RF26). Las validaciones se hacen al inicio de cada
+ * metodo y lanzan excepciones personalizadas que son capturadas en el
+ * controlador.
  */
 @Service
 public class MateriaService implements CRUDOperation<MateriaDTO> {
+
+	/**
+	 * Semestre minimo del plan de estudios.
+	 */
+	private static final int SEMESTRE_MINIMO = 1;
+
+	/**
+	 * Semestre maximo del plan de estudios (Ing. de Sistemas SNIES 4952).
+	 */
+	private static final int SEMESTRE_MAXIMO = 9;
 
 	/**
 	 * Repositorio encargado de las operaciones de persistencia de materias.
@@ -47,46 +56,48 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que crea una nueva materia validando unicidad de codigo y nombre, asi
-	 * como los datos obligatorios (CU02 / RF01).
+	 * Metodo que crea una nueva materia validando los datos obligatorios y la
+	 * unicidad de codigo y nombre (CU02 / RF01).
 	 * @param newData DTO con la informacion de la materia a crear.
-	 * @return Retorna 0 si la materia fue creada correctamente, 1 si el
-	 *         codigo o el nombre ya existen o 2 si los datos estan
-	 *         incompletos o fuera de rango.
+	 * @return Retorna 0 si la materia fue creada correctamente.
+	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos o
+	 *         fuera de rango.
+	 * @throws RecursoDuplicadoException si el codigo o el nombre ya existen.
 	 */
 	@Override
 	public int create(MateriaDTO newData) {
 
-		if (!esMateriaValida(newData)) {
-			return 2;
+		if (newData == null) {
+			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
+		}
+		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
+			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
+		}
+		if (newData.getSemestre() < SEMESTRE_MINIMO || newData.getSemestre() > SEMESTRE_MAXIMO) {
+			throw new DatosInvalidosException(
+					"El semestre debe estar entre " + SEMESTRE_MINIMO + " y " + SEMESTRE_MAXIMO);
+		}
+		if (newData.getNcreditos() <= 0) {
+			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
+		}
+		if (newData.getHorasDeLaMateria() <= 0) {
+			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
+		}
+		if (newData.getCodigo() <= 0) {
+			throw new DatosInvalidosException("El codigo de la materia debe ser un numero positivo");
 		}
 
-		try {
-			LanzadorDeExcepcion.verificarPositivo(newData.getCodigo());
-		} catch (InvalidNumberException e) {
-			System.out.println("Error de codigo: " + e.getMessage());
-			return 2;
-		}
+		String nombre = newData.getNombre().trim();
 
-		try {
-			LanzadorDeExcepcion.revisarSiRegistroYaExiste(materiaRepo.existsById(newData.getCodigo()),
-					"codigo " + newData.getCodigo());
-		} catch (RecordAlreadyExistsException e) {
-			System.out.println("Error de codigo: " + e.getMessage());
-			return 1;
+		if (materiaRepo.existsById(newData.getCodigo())) {
+			throw new RecursoDuplicadoException("Ya existe una materia con el codigo " + newData.getCodigo());
 		}
-
-		try {
-			LanzadorDeExcepcion.revisarSiRegistroYaExiste(
-					materiaRepo.findByNombre(newData.getNombre().trim()).isPresent(),
-					"nombre " + newData.getNombre().trim());
-		} catch (RecordAlreadyExistsException e) {
-			System.out.println("Error de nombre: " + e.getMessage());
-			return 1;
+		if (materiaRepo.findByNombre(nombre).isPresent()) {
+			throw new RecursoDuplicadoException("Ya existe una materia con el nombre " + nombre);
 		}
 
 		Materia entity = mapper.map(newData, Materia.class);
-		entity.setNombre(newData.getNombre().trim());
+		entity.setNombre(nombre);
 		materiaRepo.save(entity);
 		return 0;
 	}
@@ -114,14 +125,15 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * Metodo que elimina una materia mediante su identificador (codigo) recibido
 	 * como Integer (RF26).
 	 * @param id Codigo de la materia a eliminar.
-	 * @return Retorna 0 si la materia fue eliminada correctamente o 1 si
-	 *         la materia no existe o el identificador es nulo.
+	 * @return Retorna 0 si la materia fue eliminada correctamente.
+	 * @throws DatosInvalidosException si el identificador es nulo.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	@Override
-	public int deleteById(Integer id) {
+	public int deleteById(Long id) {
 
 		if (id == null) {
-			return 1;
+			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
 		}
 
 		return deleteByCodigo(id.longValue());
@@ -130,25 +142,20 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	/**
 	 * Metodo que elimina una materia mediante su codigo unico de tipo Long (RF26).
 	 * @param codigo Codigo unico de la materia a eliminar.
-	 * @return Retorna 0 si la materia fue eliminada correctamente o 1 si
-	 *         la materia no existe o el codigo es nulo.
+	 * @return Retorna 0 si la materia fue eliminada correctamente.
+	 * @throws DatosInvalidosException si el codigo es nulo.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	public int deleteByCodigo(Long codigo) {
 
 		if (codigo == null) {
-			return 1;
+			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
 		}
 
-		Optional<Materia> encontrado = materiaRepo.findById(codigo);
+		Materia encontrada = materiaRepo.findById(codigo)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
 
-		try {
-			LanzadorDeExcepcion.revisarSiExisteMateria(encontrado);
-		} catch (SubjectNotFoundException e) {
-			System.out.println("Error de materia: " + e.getMessage());
-			return 1;
-		}
-
-		materiaRepo.delete(encontrado.get());
+		materiaRepo.delete(encontrada);
 		return 0;
 	}
 
@@ -157,15 +164,17 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * como Integer (CU02 / RF26).
 	 * @param id Codigo de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
-	 * @return Retorna 0 si la actualizacion fue exitosa, 1 si la materia no
-	 *         existe o el nombre pertenece a otra materia, o 2 si los datos
+	 * @return Retorna 0 si la actualizacion fue exitosa.
+	 * @throws DatosInvalidosException si el identificador es nulo o los datos
 	 *         nuevos son invalidos o estan incompletos.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
+	 * @throws RecursoDuplicadoException si el nombre pertenece a otra materia.
 	 */
 	@Override
-	public int updateById(Integer id, MateriaDTO newData) {
+	public int updateById(Long id, MateriaDTO newData) {
 
 		if (id == null) {
-			return 1;
+			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
 		}
 
 		return updateByCodigo(id.longValue(), newData);
@@ -175,42 +184,46 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * Metodo que actualiza una materia mediante su codigo unico de tipo Long (CU02 / RF26).
 	 * @param codigo Codigo de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
-	 * @return Retorna 0 si la actualizacion fue exitosa, 1 si la materia no
-	 *         existe o el nombre ya pertenece a otra materia, o 2 si los
-	 *         datos nuevos son invalidos o estan incompletos.
+	 * @return Retorna 0 si la actualizacion fue exitosa.
+	 * @throws DatosInvalidosException si el codigo es nulo o los datos nuevos son
+	 *         invalidos o estan incompletos.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
+	 * @throws RecursoDuplicadoException si el nombre ya pertenece a otra materia.
 	 */
 	public int updateByCodigo(Long codigo, MateriaDTO newData) {
 
 		if (codigo == null) {
-			return 1;
+			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
 		}
 
-		Optional<Materia> encontrado = materiaRepo.findById(codigo);
+		Materia temp = materiaRepo.findById(codigo)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
 
-		try {
-			LanzadorDeExcepcion.revisarSiExisteMateria(encontrado);
-		} catch (SubjectNotFoundException e) {
-			System.out.println("Error de materia: " + e.getMessage());
-			return 1;
+		if (newData == null) {
+			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
+		}
+		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
+			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
+		}
+		if (newData.getSemestre() < SEMESTRE_MINIMO || newData.getSemestre() > SEMESTRE_MAXIMO) {
+			throw new DatosInvalidosException(
+					"El semestre debe estar entre " + SEMESTRE_MINIMO + " y " + SEMESTRE_MAXIMO);
+		}
+		if (newData.getNcreditos() <= 0) {
+			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
+		}
+		if (newData.getHorasDeLaMateria() <= 0) {
+			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
 
-		if (!esMateriaValida(newData)) {
-			return 2;
+		String nombre = newData.getNombre().trim();
+		Optional<Materia> porNombre = materiaRepo.findByNombre(nombre);
+
+		if (porNombre.isPresent() && porNombre.get().getId() != codigo.longValue()) {
+			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
 		}
 
-		Optional<Materia> porNombre = materiaRepo.findByNombre(newData.getNombre().trim());
-
-		try {
-			LanzadorDeExcepcion.revisarSiRegistroYaExiste(
-					porNombre.isPresent() && porNombre.get().getCodigo() != codigo.longValue(),
-					"nombre " + newData.getNombre().trim());
-		} catch (RecordAlreadyExistsException e) {
-			System.out.println("Error de nombre: " + e.getMessage());
-			return 1;
-		}
-
-		Materia temp = encontrado.get();
-		temp.setNombre(newData.getNombre().trim());
+		temp.setNombre(nombre);
 		temp.setSemestre(newData.getSemestre());
 		temp.setNcreditos(newData.getNcreditos());
 		temp.setHorasDeLaMateria(newData.getHorasDeLaMateria());
@@ -236,7 +249,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * @return Retorna true si la materia existe o false en caso contrario.
 	 */
 	@Override
-	public boolean exist(Integer id) {
+	public boolean exist(Long id) {
 
 		if (id == null) {
 			return false;
@@ -258,34 +271,48 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	/**
 	 * Metodo que busca una materia mediante su codigo unico.
 	 * @param codigo Codigo de la materia.
-	 * @return Retorna la materia en formato DTO o null si no se encuentra.
+	 * @return Retorna la materia en formato DTO.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	public MateriaDTO getByCodigo(long codigo) {
 
-		return materiaRepo.findById(codigo).map((entidad) -> mapper.map(entidad, MateriaDTO.class)).orElse(null);
+		Materia encontrada = materiaRepo.findById(codigo)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+
+		return mapper.map(encontrada, MateriaDTO.class);
 	}
 
 	/**
 	 * Metodo que busca una materia mediante su nombre exacto.
 	 * @param nombre Nombre de la materia.
-	 * @return Retorna la materia en formato DTO o null si no se encuentra.
+	 * @return Retorna la materia en formato DTO.
+	 * @throws DatosInvalidosException si el nombre es nulo o esta vacio.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	public MateriaDTO getByNombre(String nombre) {
 
 		if (nombre == null || nombre.trim().isEmpty()) {
-			return null;
+			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
 		}
 
-		return materiaRepo.findByNombre(nombre.trim()).map((entidad) -> mapper.map(entidad, MateriaDTO.class))
-				.orElse(null);
+		Materia encontrada = materiaRepo.findByNombre(nombre.trim())
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el nombre " + nombre.trim()));
+
+		return mapper.map(encontrada, MateriaDTO.class);
 	}
 
 	/**
 	 * Metodo que obtiene todas las materias correspondientes a un semestre especifico (1 a 9).
 	 * @param semestre Numero de semestre.
 	 * @return Retorna una lista de materias en formato DTO del semestre indicado.
+	 * @throws DatosInvalidosException si el semestre esta fuera del rango 1 a 9.
 	 */
 	public List<MateriaDTO> getBySemestre(int semestre) {
+
+		if (semestre < SEMESTRE_MINIMO || semestre > SEMESTRE_MAXIMO) {
+			throw new DatosInvalidosException(
+					"El semestre debe estar entre " + SEMESTRE_MINIMO + " y " + SEMESTRE_MAXIMO);
+		}
 
 		List<Materia> entityList = materiaRepo.findBySemestre(semestre);
 		List<MateriaDTO> dtoList = new ArrayList<>();
@@ -317,53 +344,5 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		});
 
 		return dtoList;
-	}
-
-	/**
-	 * Metodo que valida las reglas basicas de integridad de una materia
-	 * (CU02 - Excepcion: datos incompletos). Plan de estudios Ing. de Sistemas
-	 * SNIES 4952: 9 semestres.
-	 * @param data DTO de la materia a validar.
-	 * @return Retorna true si todos los campos obligatorios son validos o false
-	 *         en caso contrario.
-	 */
-	private boolean esMateriaValida(MateriaDTO data) {
-
-		try {
-			LanzadorDeExcepcion.verificarDatosNoNulos(data);
-		} catch (NullDataException e) {
-			System.out.println("Error de materia: " + e.getMessage());
-			return false;
-		}
-
-		try {
-			LanzadorDeExcepcion.verificarCampoVacio(data.getNombre());
-		} catch (EmptyFieldException e) {
-			System.out.println("Error de nombre: " + e.getMessage());
-			return false;
-		}
-
-		try {
-			LanzadorDeExcepcion.verificarRango(data.getSemestre(), 1, 9);
-		} catch (InvalidNumberException e) {
-			System.out.println("Error de semestre: " + e.getMessage());
-			return false;
-		}
-
-		try {
-			LanzadorDeExcepcion.verificarPositivo(data.getNcreditos());
-		} catch (InvalidNumberException e) {
-			System.out.println("Error de creditos: " + e.getMessage());
-			return false;
-		}
-
-		try {
-			LanzadorDeExcepcion.verificarPositivo(data.getHorasDeLaMateria());
-		} catch (InvalidNumberException e) {
-			System.out.println("Error de horas: " + e.getMessage());
-			return false;
-		}
-
-		return true;
 	}
 }

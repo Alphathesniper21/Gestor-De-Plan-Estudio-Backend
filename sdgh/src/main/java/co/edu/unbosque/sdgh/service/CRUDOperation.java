@@ -33,7 +33,7 @@ public interface CRUDOperation<T> {
 	 * @param id ID de la entidad a eliminar.
 	 * @return Codigo de resultado de la operacion.
 	 */
-	public int deleteById(Integer id);
+	public int deleteById(Long id);
 
 	/**
 	 * Metodo que permite actualizar entidades por su ID.
@@ -42,7 +42,7 @@ public interface CRUDOperation<T> {
 	 * @param newData Nuevos datos para la entidad.
 	 * @return Codigo de resultado de la operacion.
 	 */
-	public int updateById(Integer id, T newData);
+	public int updateById(Long id, T newData);
 
 	/**
 	 * Metodo que permite contar la cantidad total de entidades.
@@ -57,6 +57,6 @@ public interface CRUDOperation<T> {
 	 * @param id ID de la entidad a verificar.
 	 * @return true si existe, false en caso contrario.
 	 */
-	public boolean exist(Integer id);
+	public boolean exist(Long id);
 
 }

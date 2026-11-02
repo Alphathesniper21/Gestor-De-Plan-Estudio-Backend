@@ -1,10 +1,8 @@
 package co.edu.unbosque.sdgh.controller;
 
-import java.time.LocalTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +17,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
+import co.edu.unbosque.sdgh.exception.CupoExcedidoException;
+import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
+import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.GrupoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -28,16 +30,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 
 /**
- * Controlador REST para gestionar los grupos y la asignacion de horarios
- * (CU05, CU07, CU08, CU10 - RF05 a RF09, RF13 a RF21, RF25). Rutas bajo /grupo.
- * Las consultas estan abiertas a cualquier usuario autenticado; crear, actualizar,
- * eliminar y las herramientas de diagnostico/publicacion requieren rol ADMINISTRADOR.
+ * Controlador REST para gestionar los grupos de un curso (RF2). Rutas bajo
+ * /grupo. Las consultas estan abiertas a cualquier usuario autenticado; crear,
+ * actualizar y eliminar requieren rol ADMIN. Las excepciones del service se
+ * capturan aqui y se traducen a codigos HTTP.
  */
 @RestController
 @RequestMapping("/grupo")
-@CrossOrigin(origins = { "http://localhost:8080"})
+@CrossOrigin(origins = { "http://localhost:8080" })
 @Transactional
-@Tag(name = "Grupos", description = "Endpoints para la gestion de grupos y horarios")
+@Tag(name = "Grupos", description = "Endpoints para la gestion de grupos")
 @SecurityRequirement(name = "bearerAuth")
 public class GrupoController {
 
@@ -48,31 +50,32 @@ public class GrupoController {
 	private GrupoService grupoServ;
 
 	/**
-	 * Crea un nuevo grupo. Retorna 201 si fue exitoso, 406 si hubo error
-	 * (con el detalle de las reglas incumplidas).
+	 * Crea un nuevo grupo. 201 si fue exitoso, o el codigo del error de
+	 * validacion con su mensaje.
 	 */
 	@PreAuthorize("hasRole('ADMIN')")
 	@PostMapping("/crear")
-	@Operation(summary = "Crear grupo", description = "Crea un grupo validando cruces de horario, cupo, franja institucional y sesiones semanales. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Crear grupo", description = "Crea un grupo de una materia validando cupo y numero de grupo. Requiere rol ADMIN.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "201", description = "Grupo creado exitosamente"),
-		@ApiResponse(responseCode = "406", description = "Error al crear grupo (datos invalidos, id duplicado o regla incumplida)")
+		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
+		@ApiResponse(responseCode = "404", description = "La materia no existe"),
+		@ApiResponse(responseCode = "406", description = "Cupo por encima del limite institucional"),
+		@ApiResponse(responseCode = "409", description = "La materia ya tiene ese numero de grupo")
 	})
-	public ResponseEntity<String> crear(@RequestParam int idGrupo, @RequestParam long materiaId,
-			@RequestParam long docenteId, @RequestParam long aulaId, @RequestParam int cupoMaximo,
-			@RequestParam int estudiantesInscritos, @RequestParam String diaSemana,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaInicio,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaFin) {
-		GrupoDTO nuevo = new GrupoDTO(idGrupo, materiaId, docenteId, aulaId, cupoMaximo, estudiantesInscritos,
-				diaSemana, horaInicio, horaFin);
-		int status = grupoServ.create(nuevo);
-		if (status == 0) {
+	public ResponseEntity<String> crear(@RequestParam long materiaId, @RequestParam int numeroGrupo,
+			@RequestParam int cupoPlaneado) {
+		try {
+			GrupoDTO nuevo = new GrupoDTO();
+			nuevo.setMateriaId(materiaId);
+			nuevo.setNumeroGrupo(numeroGrupo);
+			nuevo.setCupoPlaneado(cupoPlaneado);
+			grupoServ.create(nuevo);
 			return new ResponseEntity<>("Grupo creado exitosamente", HttpStatus.CREATED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
+				| CupoExcedidoException e) {
+			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), estado(e));
 		}
-		String detalle = status == 1 && grupoServ.exist(idGrupo)
-				? "El id del grupo ya existe."
-				: String.join(" | ", grupoServ.diagnosticarReglasGrupo(nuevo, null));
-		return new ResponseEntity<>("Error al crear grupo: " + detalle, HttpStatus.NOT_ACCEPTABLE);
 	}
 
 	/**
@@ -88,9 +91,8 @@ public class GrupoController {
 		List<GrupoDTO> lista = grupoServ.getAll();
 		if (lista.isEmpty()) {
 			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 		}
+		return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 	}
 
 	/**
@@ -102,12 +104,11 @@ public class GrupoController {
 		@ApiResponse(responseCode = "202", description = "Grupo encontrado"),
 		@ApiResponse(responseCode = "404", description = "Grupo no encontrado")
 	})
-	public ResponseEntity<GrupoDTO> obtenerPorId(@PathVariable Integer id) {
-		GrupoDTO dto = grupoServ.getById(id);
-		if (dto != null) {
-			return new ResponseEntity<>(dto, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+	public ResponseEntity<GrupoDTO> obtenerPorId(@PathVariable Long id) {
+		try {
+			return new ResponseEntity<>(grupoServ.getById(id), HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(estado(e));
 		}
 	}
 
@@ -118,155 +119,18 @@ public class GrupoController {
 	@Operation(summary = "Obtener grupos por materia", description = "Retorna los grupos asociados a una materia.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-		@ApiResponse(responseCode = "204", description = "La materia no tiene grupos")
+		@ApiResponse(responseCode = "204", description = "La materia no tiene grupos"),
+		@ApiResponse(responseCode = "400", description = "Id de materia invalido")
 	})
 	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long materiaId) {
-		List<GrupoDTO> lista = grupoServ.getByMateriaId(materiaId);
-		if (lista.isEmpty()) {
-			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
+		try {
+			List<GrupoDTO> lista = grupoServ.getByMateriaId(materiaId);
+			if (lista.isEmpty()) {
+				return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
+			}
 			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Retorna los grupos de un docente. 202 si hay datos, 204 si no hay ninguno.
-	 */
-	@GetMapping("/mostrarpordocente/{docenteId}")
-	@Operation(summary = "Obtener grupos por docente", description = "Retorna los grupos asignados a un docente.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-		@ApiResponse(responseCode = "204", description = "El docente no tiene grupos")
-	})
-	public ResponseEntity<List<GrupoDTO>> obtenerPorDocente(@PathVariable long docenteId) {
-		List<GrupoDTO> lista = grupoServ.getByDocenteId(docenteId);
-		if (lista.isEmpty()) {
-			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Retorna los grupos de un aula. 202 si hay datos, 204 si no hay ninguno.
-	 */
-	@GetMapping("/mostrarporaula/{aulaId}")
-	@Operation(summary = "Obtener grupos por aula", description = "Retorna los grupos programados en un aula.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-		@ApiResponse(responseCode = "204", description = "El aula no tiene grupos")
-	})
-	public ResponseEntity<List<GrupoDTO>> obtenerPorAula(@PathVariable long aulaId) {
-		List<GrupoDTO> lista = grupoServ.getByAulaId(aulaId);
-		if (lista.isEmpty()) {
-			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Retorna los grupos con pocos inscritos (RF19). 202 si hay datos, 204 si no hay ninguno.
-	 */
-	@PreAuthorize("hasRole('ADMIN')")
-	@GetMapping("/paracierre")
-	@Operation(summary = "Obtener grupos para cierre", description = "Retorna los grupos con menos estudiantes que el minimo (10 por defecto). Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-		@ApiResponse(responseCode = "204", description = "Ningun grupo esta por debajo del minimo")
-	})
-	public ResponseEntity<List<GrupoDTO>> obtenerParaCierre(@RequestParam(required = false) Integer minimo) {
-		List<GrupoDTO> lista = minimo != null ? grupoServ.getGruposParaCierre(minimo)
-				: grupoServ.getGruposParaCierre();
-		if (lista.isEmpty()) {
-			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Retorna las horas semanales de un docente (RF18). 202 si tiene horas, 204 si no tiene.
-	 */
-	@PreAuthorize("hasRole('ADMIN')")
-	@GetMapping("/horassemanales/{docenteId}")
-	@Operation(summary = "Calcular horas semanales de un docente", description = "Retorna el total de horas semanales programadas para el docente. Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Horas calculadas exitosamente"),
-		@ApiResponse(responseCode = "204", description = "El docente no tiene horas programadas")
-	})
-	public ResponseEntity<Long> horasSemanales(@PathVariable long docenteId) {
-		long horas = grupoServ.calcularHorasSemanalesDocente(docenteId);
-		if (horas == 0) {
-			return new ResponseEntity<>(horas, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(horas, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Diagnostica las reglas duras y blandas de un grupo sin guardarlo (CU05 / RF16, RF20).
-	 * 202 si hay hallazgos, 204 si el grupo no presenta conflictos ni advertencias.
-	 */
-	@PreAuthorize("hasRole('ADMIN')")
-	@PostMapping("/diagnosticar")
-	@Operation(summary = "Diagnosticar un grupo", description = "Evalua un grupo y lista las reglas incumplidas y advertencias, sin guardarlo. Si se envia idExcluir, ese grupo se ignora (util al actualizar). Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Se detectaron conflictos o advertencias"),
-		@ApiResponse(responseCode = "204", description = "El grupo no presenta conflictos")
-	})
-	public ResponseEntity<List<String>> diagnosticar(@RequestParam int idGrupo, @RequestParam long materiaId,
-			@RequestParam long docenteId, @RequestParam long aulaId, @RequestParam int cupoMaximo,
-			@RequestParam int estudiantesInscritos, @RequestParam String diaSemana,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaInicio,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaFin,
-			@RequestParam(required = false) Integer idExcluir) {
-		GrupoDTO dto = new GrupoDTO(idGrupo, materiaId, docenteId, aulaId, cupoMaximo, estudiantesInscritos,
-				diaSemana, horaInicio, horaFin);
-		List<String> hallazgos = grupoServ.diagnosticarReglasGrupo(dto, idExcluir);
-		if (hallazgos.isEmpty()) {
-			return new ResponseEntity<>(hallazgos, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(hallazgos, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Genera el reporte de conflictos del horario actual (CU05, CU10 / RF20, RF21, RF25).
-	 * 202 si hay hallazgos, 204 si no hay ninguno.
-	 */
-	@PreAuthorize("hasRole('ADMIN')")
-	@GetMapping("/reporteconflictos")
-	@Operation(summary = "Reporte de conflictos", description = "Lista los conflictos y advertencias de todos los grupos registrados. Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "Reporte con hallazgos"),
-		@ApiResponse(responseCode = "204", description = "El horario no tiene conflictos")
-	})
-	public ResponseEntity<List<String>> reporteConflictos() {
-		List<String> reporte = grupoServ.generarReporteConflictos();
-		if (reporte.isEmpty()) {
-			return new ResponseEntity<>(reporte, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(reporte, HttpStatus.ACCEPTED);
-		}
-	}
-
-	/**
-	 * Verifica si el horario se puede publicar (CU10 / RF25). 202 si se puede, 204 si no.
-	 */
-	@PreAuthorize("hasRole('ADMIN')")
-	@GetMapping("/puedepublicar")
-	@Operation(summary = "Verificar si el horario se puede publicar", description = "Indica si no hay violaciones de restricciones duras. Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-		@ApiResponse(responseCode = "202", description = "El horario se puede publicar"),
-		@ApiResponse(responseCode = "204", description = "Hay restricciones duras incumplidas")
-	})
-	public ResponseEntity<Boolean> puedePublicar() {
-		boolean puede = grupoServ.puedePublicarHorario();
-		if (puede) {
-			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(estado(e));
 		}
 	}
 
@@ -280,12 +144,11 @@ public class GrupoController {
 		@ApiResponse(responseCode = "204", description = "No hay grupos registrados")
 	})
 	public ResponseEntity<Long> contar() {
-		Long count = grupoServ.count();
+		long count = grupoServ.count();
 		if (count == 0) {
 			return new ResponseEntity<>(count, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(count, HttpStatus.ACCEPTED);
 		}
+		return new ResponseEntity<>(count, HttpStatus.ACCEPTED);
 	}
 
 	/**
@@ -297,61 +160,75 @@ public class GrupoController {
 		@ApiResponse(responseCode = "202", description = "Grupo encontrado"),
 		@ApiResponse(responseCode = "204", description = "Grupo no encontrado")
 	})
-	public ResponseEntity<Boolean> existe(@PathVariable Integer id) {
-		boolean encontrado = grupoServ.exist(id);
-		if (encontrado) {
+	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
+		if (grupoServ.exist(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
 		}
+		return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
 	}
 
 	/**
-	 * Actualiza un grupo por id. 202 exitoso, 404 no encontrado, 400 error
-	 * (con el detalle de las reglas incumplidas).
+	 * Actualiza el numero de grupo y el cupo planeado. 202 si fue exitoso, o el
+	 * codigo del error de validacion con su mensaje.
 	 */
 	@PreAuthorize("hasRole('ADMIN')")
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar grupo", description = "Actualiza un grupo existente revalidando las restricciones duras. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Actualizar grupo", description = "Actualiza el numero de grupo y el cupo planeado. Requiere rol ADMIN.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Grupo actualizado exitosamente"),
+		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
 		@ApiResponse(responseCode = "404", description = "Grupo no encontrado"),
-		@ApiResponse(responseCode = "400", description = "Error al actualizar (datos invalidos o regla incumplida)")
+		@ApiResponse(responseCode = "406", description = "Cupo por encima del limite institucional"),
+		@ApiResponse(responseCode = "409", description = "La materia ya tiene ese numero de grupo")
 	})
-	public ResponseEntity<String> actualizar(@RequestParam Integer id, @RequestParam long materiaId,
-			@RequestParam long docenteId, @RequestParam long aulaId, @RequestParam int cupoMaximo,
-			@RequestParam int estudiantesInscritos, @RequestParam String diaSemana,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaInicio,
-			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime horaFin) {
-		if (!grupoServ.exist(id)) {
-			return new ResponseEntity<>("Grupo no encontrado", HttpStatus.NOT_FOUND);
-		}
-		GrupoDTO nuevo = new GrupoDTO(id, materiaId, docenteId, aulaId, cupoMaximo, estudiantesInscritos,
-				diaSemana, horaInicio, horaFin);
-		int status = grupoServ.updateById(id, nuevo);
-		if (status == 0) {
+	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam int numeroGrupo,
+			@RequestParam int cupoPlaneado) {
+		try {
+			GrupoDTO nuevo = new GrupoDTO();
+			nuevo.setNumeroGrupo(numeroGrupo);
+			nuevo.setCupoPlaneado(cupoPlaneado);
+			grupoServ.updateById(id, nuevo);
 			return new ResponseEntity<>("Grupo actualizado exitosamente", HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
+				| CupoExcedidoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), estado(e));
 		}
-		String detalle = String.join(" | ", grupoServ.diagnosticarReglasGrupo(nuevo, id));
-		return new ResponseEntity<>("Error al actualizar grupo: " + detalle, HttpStatus.BAD_REQUEST);
 	}
 
 	/**
-	 * Elimina un grupo por id. 202 si fue exitoso, 404 si no se encontro.
+	 * Elimina un grupo y sus sesiones. 202 si fue exitoso, 404 si no se encontro.
 	 */
 	@PreAuthorize("hasRole('ADMIN')")
 	@DeleteMapping("/eliminar/{id}")
-	@Operation(summary = "Eliminar grupo", description = "Elimina un grupo por su id. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Eliminar grupo", description = "Elimina un grupo y sus sesiones. Requiere rol ADMIN.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Grupo eliminado exitosamente"),
 		@ApiResponse(responseCode = "404", description = "Grupo no encontrado")
 	})
-	public ResponseEntity<String> eliminarPorId(@PathVariable Integer id) {
-		int status = grupoServ.deleteById(id);
-		if (status == 0) {
+	public ResponseEntity<String> eliminarPorId(@PathVariable Long id) {
+		try {
+			grupoServ.deleteById(id);
 			return new ResponseEntity<>("Grupo eliminado exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al eliminar", HttpStatus.NOT_FOUND);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), estado(e));
 		}
+	}
+
+	/**
+	 * Traduce la excepcion del service al codigo HTTP correspondiente.
+	 * @param e Excepcion capturada.
+	 * @return Retorna el codigo HTTP.
+	 */
+	private HttpStatus estado(RuntimeException e) {
+		if (e instanceof RecursoNoEncontradoException) {
+			return HttpStatus.NOT_FOUND;
+		}
+		if (e instanceof RecursoDuplicadoException) {
+			return HttpStatus.CONFLICT;
+		}
+		if (e instanceof CupoExcedidoException) {
+			return HttpStatus.NOT_ACCEPTABLE;
+		}
+		return HttpStatus.BAD_REQUEST;
 	}
 }

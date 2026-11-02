@@ -77,6 +77,15 @@ public class MateriaDTO {
 	public void setCorrelativa(boolean correlativa) {
 		this.correlativa = correlativa;
 	}
+	
+	/**
+	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las horas
+	 * de la materia, porque cada sesion dura 2 horas (RF3, RF7).
+	 * @return Retorna el numero de sesiones semanales.
+	 */
+	public int getSesionesSemanales() {
+		return horasDeLaMateria / 2;
+	}
 
 	@Override
 	public String toString() {

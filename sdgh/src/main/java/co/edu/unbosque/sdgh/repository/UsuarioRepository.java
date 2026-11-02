@@ -13,7 +13,7 @@ import co.edu.unbosque.sdgh.entity.Usuario;
  * Repositorio de la entidad Usuario.
  * Gestiona la persistencia y consulta de los usuarios registrados en el aplicativo.
  */
-public interface UsuarioRepository extends CrudRepository<Usuario, Integer> {
+public interface UsuarioRepository extends CrudRepository<Usuario, Long> {
 
 	/**
 	 * Busca un usuario por su nombre de usuario (credencial de login).
@@ -46,5 +46,13 @@ public interface UsuarioRepository extends CrudRepository<Usuario, Integer> {
 	 * @return Lista de usuarios de la facultad.
 	 */
 	List<Usuario> findByFacultad(String facultad);
+	
+	/**
+	 * Verifica si ya existe un usuario con el username dado.
+	 *
+	 * @param username El username a verificar.
+	 * @return true si ya existe, false en caso contrario.
+	 */
+	boolean existsByUsername(String username);
 
 }
