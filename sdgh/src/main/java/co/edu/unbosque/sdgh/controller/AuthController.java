@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
+import co.edu.unbosque.sdgh.entity.RolUsuario;
 import co.edu.unbosque.sdgh.entity.Usuario;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
@@ -89,7 +90,7 @@ public class AuthController {
 			UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 			String jwt = jwtUtil.generateAccessToken(userDetails);
 
-			String rol = null;
+			RolUsuario rol = null;
 			if (userDetails instanceof Usuario) {
 				Usuario usuario = (Usuario) userDetails;
 				rol = usuario.getRol();
@@ -128,7 +129,7 @@ public class AuthController {
 		nuevo.setUsername(nombreUsuario);
 		nuevo.setCorreo(correoElectronico);
 		nuevo.setPassword(contrasenia);
-		nuevo.setRol("CONSULTA");
+		nuevo.setRol(RolUsuario.CONSULTOR);
 
 		try {
 			usuarioServ.create(nuevo);
@@ -154,14 +155,14 @@ public class AuthController {
 		/**
 		 * Rol del usuario autenticado (GESTOR o CONSULTA).
 		 */
-		private final String rol;
+		private final RolUsuario rol;
 
 		/**
 		 * Constructor con token y rol.
 		 * @param token Token JWT generado.
 		 * @param rol Rol del usuario.
 		 */
-		public AuthResponse(String token, String rol) {
+		public AuthResponse(String token, RolUsuario rol) {
 			this.token = token;
 			this.rol = rol;
 		}
@@ -178,7 +179,7 @@ public class AuthController {
 		 * Obtiene el rol del usuario.
 		 * @return Rol del usuario.
 		 */
-		public String getRol() {
+		public RolUsuario getRol() {
 			return rol;
 		}
 	}

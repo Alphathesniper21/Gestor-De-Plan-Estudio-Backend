@@ -59,7 +59,7 @@ public class MateriaController {
 		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		} catch (RecursoDuplicadoException e) {
-			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.CONFLICT);
+			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 

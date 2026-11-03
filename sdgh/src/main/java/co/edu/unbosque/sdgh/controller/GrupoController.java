@@ -74,7 +74,7 @@ public class GrupoController {
 			return new ResponseEntity<>("Grupo creado exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
 				| CupoExcedidoException e) {
-			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -108,7 +108,7 @@ public class GrupoController {
 		try {
 			return new ResponseEntity<>(grupoServ.getById(id), HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 	}
 
@@ -130,7 +130,7 @@ public class GrupoController {
 			}
 			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -191,7 +191,7 @@ public class GrupoController {
 			return new ResponseEntity<>("Grupo actualizado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
 				| CupoExcedidoException e) {
-			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -210,7 +210,7 @@ public class GrupoController {
 			grupoServ.deleteById(id);
 			return new ResponseEntity<>("Grupo eliminado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -219,16 +219,5 @@ public class GrupoController {
 	 * @param e Excepcion capturada.
 	 * @return Retorna el codigo HTTP.
 	 */
-	private HttpStatus estado(RuntimeException e) {
-		if (e instanceof RecursoNoEncontradoException) {
-			return HttpStatus.NOT_FOUND;
-		}
-		if (e instanceof RecursoDuplicadoException) {
-			return HttpStatus.CONFLICT;
-		}
-		if (e instanceof CupoExcedidoException) {
-			return HttpStatus.NOT_ACCEPTABLE;
-		}
-		return HttpStatus.BAD_REQUEST;
-	}
+	
 }

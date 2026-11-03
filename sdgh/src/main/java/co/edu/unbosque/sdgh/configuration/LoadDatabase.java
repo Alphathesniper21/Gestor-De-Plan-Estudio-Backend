@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import co.edu.unbosque.sdgh.entity.RolUsuario;
 import co.edu.unbosque.sdgh.entity.Usuario;
 import co.edu.unbosque.sdgh.repository.UsuarioRepository;
 
@@ -53,7 +54,7 @@ public class LoadDatabase {
 				log.info("El gestor ya existe, omitiendo la creacion del gestor...");
 			} else {
 				Usuario gestor = new Usuario("Gestor Inicial", "gestor@unbosque.edu.co", "gestor",
-						passwordEncoder.encode(defaultPassword), "GESTOR");
+						passwordEncoder.encode(defaultPassword), RolUsuario.GESTOR);
 				userRepo.save(gestor);
 				log.info("Precargando usuario gestor");
 			}
@@ -63,7 +64,7 @@ public class LoadDatabase {
 				log.info("El usuario de consulta ya existe, omitiendo la creacion...");
 			} else {
 				Usuario consulta = new Usuario("Usuario Consulta", "consulta@unbosque.edu.co", "consulta",
-						passwordEncoder.encode(defaultPassword), "CONSULTA");
+						passwordEncoder.encode(defaultPassword), RolUsuario.CONSULTOR);
 				userRepo.save(consulta);
 				log.info("Precargando usuario de consulta");
 			}
