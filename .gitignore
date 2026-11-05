@@ -23,5 +23,15 @@
 hs_err_pid*
 replay_pid*
 
+# Maven
+target/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# Applications
 src/main/resources/application.properties
 src/main/resources/application.yml
