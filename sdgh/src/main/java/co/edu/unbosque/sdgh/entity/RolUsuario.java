@@ -4,5 +4,5 @@ public enum RolUsuario {
 	
 	GESTOR,
 	
-	CONSULTOR
+	CONSULTANTE
 }

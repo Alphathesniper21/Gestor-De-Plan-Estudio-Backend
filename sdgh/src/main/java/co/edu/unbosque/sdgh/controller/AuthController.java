@@ -129,7 +129,7 @@ public class AuthController {
 		nuevo.setUsername(nombreUsuario);
 		nuevo.setCorreo(correoElectronico);
 		nuevo.setPassword(contrasenia);
-		nuevo.setRol(RolUsuario.CONSULTOR);
+		nuevo.setRol(RolUsuario.CONSULTANTE);
 
 		try {
 			usuarioServ.create(nuevo);

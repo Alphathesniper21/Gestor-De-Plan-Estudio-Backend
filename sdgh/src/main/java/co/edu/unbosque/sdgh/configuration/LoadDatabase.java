@@ -64,7 +64,7 @@ public class LoadDatabase {
 				log.info("El usuario de consulta ya existe, omitiendo la creacion...");
 			} else {
 				Usuario consulta = new Usuario("Usuario Consulta", "consulta@unbosque.edu.co", "consulta",
-						passwordEncoder.encode(defaultPassword), RolUsuario.CONSULTOR);
+						passwordEncoder.encode(defaultPassword), RolUsuario.CONSULTANTE);
 				userRepo.save(consulta);
 				log.info("Precargando usuario de consulta");
 			}
