@@ -51,9 +51,9 @@ public class MateriaController {
 	})
 	public ResponseEntity<String> crear(@RequestParam String nombre,
 			@RequestParam int semestre, @RequestParam int ncreditos,
-			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
+			@RequestParam boolean correlativa) {
 		try {
-			MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			MateriaDTO nueva = new MateriaDTO(nombre, nombre, semestre, ncreditos, correlativa);
 			materiaService.create(nueva);
 			return new ResponseEntity<>("Materia creada exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException e) {
@@ -183,9 +183,8 @@ public class MateriaController {
 			@ApiResponse(responseCode = "400", description = "Error al actualizar")
 	})
 	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
-			@RequestParam int semestre, @RequestParam int ncreditos,
-			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
-		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			@RequestParam int semestre, @RequestParam int ncreditos, @RequestParam boolean correlativa) {
+		MateriaDTO nueva = new MateriaDTO(nombre, nombre, semestre, ncreditos, correlativa);
 		if (!materiaService.existById(id)) {
 			return new ResponseEntity<>("Materia no encontrada", HttpStatus.NOT_FOUND);
 		}
