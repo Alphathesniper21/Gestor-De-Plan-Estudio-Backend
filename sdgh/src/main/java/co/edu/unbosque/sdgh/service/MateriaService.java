@@ -57,12 +57,12 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
 	 * Metodo que crea una nueva materia validando los datos obligatorios y la
-	 * unicidad de codigo y nombre (CU02 / RF01).
+	 * unicidad de id y nombre (CU02 / RF01).
 	 * @param newData DTO con la informacion de la materia a crear.
 	 * @return Retorna 0 si la materia fue creada correctamente.
 	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos o
 	 *         fuera de rango.
-	 * @throws RecursoDuplicadoException si el codigo o el nombre ya existen.
+	 * @throws RecursoDuplicadoException si el id o el nombre ya existen.
 	 */
 	@Override
 	public int create(MateriaDTO newData) {
@@ -83,15 +83,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getHorasDeLaMateria() <= 0) {
 			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
-		if (newData.getCodigo() <= 0) {
-			throw new DatosInvalidosException("El codigo de la materia debe ser un numero positivo");
-		}
 
 		String nombre = newData.getNombre().trim();
 
-		if (materiaRepo.existsById(newData.getCodigo())) {
-			throw new RecursoDuplicadoException("Ya existe una materia con el codigo " + newData.getCodigo());
-		}
 		if (materiaRepo.findByNombre(nombre).isPresent()) {
 			throw new RecursoDuplicadoException("Ya existe una materia con el nombre " + nombre);
 		}
@@ -121,48 +115,49 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		return dtoList;
 	}
 
-	/**
-	 * Metodo que elimina una materia mediante su identificador (codigo) recibido
-	 * como Integer (RF26).
-	 * @param id Codigo de la materia a eliminar.
-	 * @return Retorna 0 si la materia fue eliminada correctamente.
-	 * @throws DatosInvalidosException si el identificador es nulo.
-	 * @throws RecursoNoEncontradoException si la materia no existe.
-	 */
-	@Override
-	public int deleteById(Long id) {
-
-		if (id == null) {
-			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
-		}
-
-		return deleteByCodigo(id.longValue());
-	}
+//	/**
+//	 * Metodo que elimina una materia mediante su identificador (codigo) recibido
+//	 * como Integer (RF26).
+//	 * @param id id de la materia a eliminar.
+//	 * @return Retorna 0 si la materia fue eliminada correctamente.
+//	 * @throws DatosInvalidosException si el identificador es nulo.
+//	 * @throws RecursoNoEncontradoException si la materia no existe.
+//	 */
+//	@Override
+//	public int deleteById(Long id) {
+//
+//		if (id == null) {
+//			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
+//		}
+//
+//		return deleteByCodigo(id.longValue());
+//	}
 
 	/**
 	 * Metodo que elimina una materia mediante su codigo unico de tipo Long (RF26).
 	 * @param codigo Codigo unico de la materia a eliminar.
 	 * @return Retorna 0 si la materia fue eliminada correctamente.
 	 * @throws DatosInvalidosException si el codigo es nulo.
-	 * @throws RecursoNoEncontradoException si la materia no existe.
+	 * @throws RecursoNoEncontradoException si la materia nidte.
 	 */
-	public int deleteByCodigo(Long codigo) {
+	@Override
+	public int deleteById(Long id) {
 
-		if (codigo == null) {
-			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
+		if (id == null) {
+			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
 
-		Materia encontrada = materiaRepo.findById(codigo)
-				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+		Materia encontrada = materiaRepo.findById(id)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
 
 		materiaRepo.delete(encontrada);
 		return 0;
 	}
 
 	/**
-	 * Metodo que actualiza una materia mediante su identificador (codigo) recibido
+	 * Metodo que actualiza una materia mediante su identificador (id) recibido
 	 * como Integer (CU02 / RF26).
-	 * @param id Codigo de la materia a actualizar.
+	 * @param id id de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
 	 * @throws DatosInvalidosException si el identificador es nulo o los datos
@@ -170,34 +165,35 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 * @throws RecursoDuplicadoException si el nombre pertenece a otra materia.
 	 */
-	@Override
-	public int updateById(Long id, MateriaDTO newData) {
-
-		if (id == null) {
-			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
-		}
-
-		return updateByCodigo(id.longValue(), newData);
-	}
+//	@Override
+//	public int updateById(Long id, MateriaDTO newData) {
+//
+//		if (id == null) {
+//			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
+//		}
+//
+//		return updateById(id.longValue(), newData);
+//	}
 
 	/**
-	 * Metodo que actualiza una materia mediante su codigo unico de tipo Long (CU02 / RF26).
-	 * @param codigo Codigo de la materia a actualizar.
+	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF26).
+	 * @param id de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el codigo es nulo o los datos nuevos son
+	 * @throws DatosInvalidosException si el id es nulo o los datos nuevos son
 	 *         invalidos o estan incompletos.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 * @throws RecursoDuplicadoException si el nombre ya pertenece a otra materia.
 	 */
-	public int updateByCodigo(Long codigo, MateriaDTO newData) {
+	@Override
+	public int updateById(Long id, MateriaDTO newData) {
 
-		if (codigo == null) {
-			throw new DatosInvalidosException("El codigo de la materia no puede ser nulo");
+		if (id == null) {
+			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
 
-		Materia temp = materiaRepo.findById(codigo)
-				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+		Materia temp = materiaRepo.findById(id)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
 
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
@@ -219,7 +215,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		String nombre = newData.getNombre().trim();
 		Optional<Materia> porNombre = materiaRepo.findByNombre(nombre);
 
-		if (porNombre.isPresent() && porNombre.get().getId() != codigo.longValue()) {
+		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
 			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
 		}
 
@@ -243,29 +239,30 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que verifica si una materia existe mediante su identificador (codigo)
+	 * Metodo que verifica si una materia existe mediante su identificador (id)
 	 * recibido como Integer.
-	 * @param id Codigo de la materia a verificar.
+	 * @param id id de la materia a verificar.
 	 * @return Retorna true si la materia existe o false en caso contrario.
 	 */
-	@Override
-	public boolean exist(Long id) {
-
-		if (id == null) {
-			return false;
-		}
-
-		return existByCodigo(id.longValue());
-	}
+//	@Override
+//	public boolean exist(Long id) {
+//
+//		if (id == null) {
+//			return false;
+//		}
+//
+//		return existByCodigo(id.longValue());
+//	}
 
 	/**
 	 * Metodo que verifica si una materia existe mediante su codigo de tipo Long.
 	 * @param codigo Codigo unico de la materia a verificar.
 	 * @return Retorna true si la materia existe o false en caso contrario.
 	 */
-	public boolean existByCodigo(Long codigo) {
-
-		return codigo != null && materiaRepo.existsById(codigo);
+	@Override
+	public boolean existById(Long id) {
+		
+		return id != null && materiaRepo.existsById(id);
 	}
 
 	/**
@@ -274,10 +271,10 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * @return Retorna la materia en formato DTO.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
-	public MateriaDTO getByCodigo(long codigo) {
+	public MateriaDTO getById(long id) {
 
-		Materia encontrada = materiaRepo.findById(codigo)
-				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+		Materia encontrada = materiaRepo.findById(id)
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + id));
 
 		return mapper.map(encontrada, MateriaDTO.class);
 	}

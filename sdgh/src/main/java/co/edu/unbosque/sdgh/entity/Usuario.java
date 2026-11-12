@@ -10,6 +10,8 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -54,13 +56,14 @@ public class Usuario implements UserDetails {
 	/**
 	 * Rol del usuario: GESTOR o CONSULTA.
 	 */
-	private String rol;
+	@Enumerated(EnumType.STRING)
+	private RolUsuario rol;
 
 	public Usuario() {
 		super();
 	}
 
-	public Usuario(String nombre, String correo, String username, String password, String rol) {
+	public Usuario(String nombre, String correo, String username, String password, RolUsuario rol) {
 		super();
 		this.nombre = nombre;
 		this.correo = correo;
@@ -68,7 +71,7 @@ public class Usuario implements UserDetails {
 		this.password = password;
 		this.rol = rol;
 	}
-
+	
 	public long getId() {
 		return id;
 	}
@@ -93,11 +96,11 @@ public class Usuario implements UserDetails {
 		this.correo = correo;
 	}
 
-	public String getRol() {
+	public RolUsuario getRol() {
 		return rol;
 	}
 
-	public void setRol(String rol) {
+	public void setRol(RolUsuario rol) {
 		this.rol = rol;
 	}
 

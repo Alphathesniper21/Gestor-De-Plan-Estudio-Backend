@@ -372,7 +372,7 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	 * @return Retorna true si la sesion existe o false en caso contrario.
 	 */
 	@Override
-	public boolean exist(Long id) {
+	public boolean existById(Long id) {
 
 		return id != null && sesionRepo.existsById(id);
 	}

@@ -1,7 +1,9 @@
 package co.edu.unbosque.sdgh.security;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -10,8 +12,10 @@ import javax.crypto.SecretKey;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import co.edu.unbosque.sdgh.entity.Usuario;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -50,7 +54,32 @@ public class JwtUtil {
 				accessTokenExpirationMs, refreshTokenExpirationMs);
 	}
 
+	/**
+	 * Genera un token JWT para un usuario. Incluye las autoridades y el rol como
+	 * claims, y usa la expiracion del access token.
+	 *
+	 * @param userDetails Detalles del usuario para el cual generar el token.
+	 * @return Token JWT generado.
+	 */
+	public String generateToken(UserDetails userDetails) {
+		Map<String, Object> claims = new HashMap<>();
+		claims.put("type", "access");
 
+		List<String> authorities = new ArrayList<>();
+		for (GrantedAuthority authority : userDetails.getAuthorities()) {
+			authorities.add(authority.getAuthority());
+		}
+		claims.put("authorities", authorities);
+
+		if (userDetails instanceof Usuario) {
+			Usuario user = (Usuario) userDetails;
+			claims.put("role", user.getRol());
+			claims.put("rol", user.getRol());
+		}
+
+		return buildToken(claims, userDetails.getUsername(), accessTokenExpirationMs);
+	}
+	
 	/**
 	 * Genera un access token con el username y el rol del usuario como claims.
 	 *
