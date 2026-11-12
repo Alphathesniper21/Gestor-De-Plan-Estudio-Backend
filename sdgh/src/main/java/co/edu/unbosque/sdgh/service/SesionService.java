@@ -84,7 +84,12 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	 */
 	@Autowired
 	private MateriaRepository materiaRepo;
-
+	
+	/**
+	 * Servicio de Materia
+	 */
+	private MateriaService materiaServ;
+	
 	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
 	 */
@@ -164,9 +169,9 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 
 		List<Sesion> sesionesGrupo = sesionRepo.findByGrupoId(grupo.getId());
 
-		if (sesionesGrupo.size() >= materia.getSesionesSemanales()) {
+		if (sesionesGrupo.size() >= materiaServ.calcularSesionesSemanales(materia.getNcreditos())) {
 			throw new LimiteSesionesExcedidoException("El grupo " + grupo.getId() + " ya tiene las "
-					+ materia.getSesionesSemanales() + " sesiones semanales de su curso");
+					+ materiaServ.calcularSesionesSemanales(materia.getNcreditos()) + " sesiones semanales de su curso");
 		}
 
 		for (Sesion existente : sesionesGrupo) {

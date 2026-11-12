@@ -61,7 +61,7 @@ class AuthControllerTest {
 
 		when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
 				.thenReturn(auth);
-		when(jwtUtil.generateAccessToken(usuario)).thenReturn("mocked.jwt.token");
+		when(jwtUtil.generateToken(usuario)).thenReturn("mocked.jwt.token");
 
 		mockMvc.perform(post("/auth/login")
 				.param("nombreUsuario", "admin")

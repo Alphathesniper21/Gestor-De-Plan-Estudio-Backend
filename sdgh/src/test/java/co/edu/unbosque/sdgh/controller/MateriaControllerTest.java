@@ -51,7 +51,6 @@ class MateriaControllerTest {
 		materiaDTO.setNombre("Programacion I");
 		materiaDTO.setSemestre(2);
 		materiaDTO.setNcreditos(3);
-		materiaDTO.setHorasDeLaMateria(4);
 		materiaDTO.setCorrelativa(false);
 	}
 

@@ -106,6 +106,10 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getNcreditos() <= 0) {
 			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
 		}
+		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException(
+					"El codigo de la materia debe ser numerico y tener entre 6 y 10 digitos, como una cedula");
+		}
 
 		String nombre = newData.getNombre().trim();
 
@@ -357,5 +361,15 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	public int calcularSesionesSemanales(int ncreditos) {
 
 		return (calcularHorasSemanales(ncreditos) + HORAS_POR_SESION - 1) / HORAS_POR_SESION;
+	}
+	
+	public int getHorasTotalesSemestre(Long id) {
+
+		if (id == null) {
+			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
+		}
+
+		MateriaDTO materia = getById(id);
+		return materia.getNcreditos() * HORAS_POR_CREDITO;
 	}
 }

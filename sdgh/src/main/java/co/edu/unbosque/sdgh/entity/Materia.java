@@ -2,12 +2,12 @@ package co.edu.unbosque.sdgh.entity;
 
 import java.util.Objects;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import jakarta.persistence.Transient;
 
 @Entity
 @Table(name = "materia")
@@ -15,6 +15,9 @@ public class Materia {
 
 	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
+	
+	@Column(unique = true, nullable = false)
+	private long codigo;
 
 	private String nombre;
 	private int semestre;
@@ -25,8 +28,9 @@ public class Materia {
 		super();
 	}
 	
-	public Materia(String nombre, int semestre, int ncreditos, boolean correlativa) {
+	public Materia(long codigo, String nombre, int semestre, int ncreditos, boolean correlativa) {
 		super();
+		this.codigo = codigo;
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
@@ -39,6 +43,14 @@ public class Materia {
 
 	public void setId(long id) {
 		this.id = id;
+	}
+
+	public long getCodigo() {
+		return codigo;
+	}
+
+	public void setCodigo(long codigo) {
+		this.codigo = codigo;
 	}
 
 	public String getNombre() {
@@ -97,7 +109,5 @@ public class Materia {
 		return correlativa == other.correlativa && id == other.id && ncreditos == other.ncreditos
 				&& Objects.equals(nombre, other.nombre) && semestre == other.semestre;
 	}
-	
-
 	
 }

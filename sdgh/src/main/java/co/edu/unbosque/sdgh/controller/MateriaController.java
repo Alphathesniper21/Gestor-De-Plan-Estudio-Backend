@@ -61,10 +61,10 @@ public class MateriaController {
 			@ApiResponse(responseCode = "201", description = "Materia creada exitosamente"),
 			@ApiResponse(responseCode = "400", description = "Error al crear materia (datos invalidos o duplicada)")
 	})
-	public ResponseEntity<String> crear(@RequestParam String nombre, @RequestParam int semestre,
+	public ResponseEntity<String> crear(@RequestParam long codigo, @RequestParam String nombre, @RequestParam int semestre,
 			@RequestParam int ncreditos, @RequestParam boolean correlativa) {
 		try {
-			MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, correlativa);
+			MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, correlativa);
 			materiaService.create(nueva);
 			return new ResponseEntity<>("Materia creada exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException e) {
@@ -130,6 +130,26 @@ public class MateriaController {
 			}
 		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+		}
+	}
+	
+	/**
+	 * Retorna las horas totales del semestre de una materia (creditos x 48). 202 si
+	 * existe, 404 si no se encuentra.
+	 */
+	@GetMapping("/horas/{id}")
+	@Operation(summary = "Obtener horas totales de una materia", description = "Retorna las horas totales por semestre de la materia: creditos x 48.")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "202", description = "Horas calculadas"),
+			@ApiResponse(responseCode = "404", description = "Materia no encontrada")
+	})
+	public ResponseEntity<?> obtenerHoras(@PathVariable Long id) {
+		try {
+			return new ResponseEntity<>(materiaService.getHorasTotalesSemestre(id), HttpStatus.ACCEPTED);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al calcular horas: " + e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>("Error al calcular horas: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -199,10 +219,10 @@ public class MateriaController {
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada"),
 			@ApiResponse(responseCode = "400", description = "Error al actualizar (datos invalidos o nombre duplicado)")
 	})
-	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
+	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam long codigo,@RequestParam String nombre,
 			@RequestParam int semestre, @RequestParam int ncreditos, @RequestParam boolean correlativa) {
 		try {
-			MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, correlativa);
+			MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, correlativa);
 			materiaService.updateById(id, nueva);
 			return new ResponseEntity<>("Materia actualizada exitosamente", HttpStatus.ACCEPTED);
 		} catch (RecursoNoEncontradoException e) {
@@ -234,4 +254,6 @@ public class MateriaController {
 			return new ResponseEntity<>("Error al eliminar materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
+	
+	
 }
