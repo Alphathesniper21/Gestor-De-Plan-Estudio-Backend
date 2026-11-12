@@ -4,14 +4,15 @@ import java.util.List;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -22,74 +23,43 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity
 public class SecurityConfig {
 
-	/**
-	 * Implementacion del servicio de carga de detalles de usuario para autenticacion.
-	 */
-	private final UserDetailsServiceImpl userDetailsService;
-	
-	/**
-	 * Filtro JWT que intercepta y valida los tokens en cada peticion.
-	 */
-	private final JwtFilter jwtFilter;
+	private final JwtAuthenticationFilter jwtAuthFilter;
+	private final UserDetailsService userDetailsService;
 
-	/**
-     * Constructor de la configuracion de seguridad.
-     *
-     * @param userDetailsService Servicio de carga de detalles de usuario.
-     * @param jwtFilter          Filtro JWT para validacion de tokens.
-	 */
-	public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtFilter jwtFilter) {
+	public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, UserDetailsService userDetailsService) {
+		this.jwtAuthFilter = jwtAuthFilter;
 		this.userDetailsService = userDetailsService;
-		this.jwtFilter          = jwtFilter;
 	}
 
-	/**
-	 * Cadena principal de filtros de seguridad. Configura CSRF, CORS, sesiones,
-     * proveedor de autenticacion, reglas de acceso y el filtro JWT.
-     *
-     * @param http Objeto de configuracion de seguridad HTTP.
-     * @return Cadena de filtros de seguridad configurada.
-     * @throws Exception si ocurre un error durante la configuracion.
-	 */
 	@Bean
-	public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-		http
-			.csrf(csrf -> csrf.disable())
-
-			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-			.sessionManagement(session ->
-				session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-			.authenticationProvider(authenticationProvider())
-
-			.authorizeHttpRequests(auth -> auth
-				.requestMatchers("/auth/**").permitAll()
-				.requestMatchers(
-					"/swagger-ui.html",
-					"/swagger-ui/**",
-					"/v3/api-docs/**",
-					"/v3/api-docs.yaml").permitAll()
-
-				.requestMatchers("/admin/**").hasRole("ADMIN")
-
-				.anyRequest().authenticated()
-			)
-
-			.addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		http.cors(cors -> cors.configurationSource(corsConfigurationSource()))
+				.csrf(csrf -> csrf.disable())
+				.authorizeHttpRequests(auth -> auth
+						.requestMatchers("/auth/**")
+						.permitAll()
+						.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**", "/v3/api-docs.yaml")
+						.permitAll()
+						.requestMatchers("/usuario/**")
+						.hasRole("GESTOR")
+						.requestMatchers(HttpMethod.GET, "/materia/**", "/grupo/**")
+						.hasAnyRole("GESTOR", "CONSULTA")
+						.requestMatchers(HttpMethod.POST, "/materia/**", "/grupo/**")
+						.hasRole("GESTOR")
+						.requestMatchers(HttpMethod.PUT, "/materia/**", "/grupo/**")
+						.hasRole("GESTOR")
+						.requestMatchers(HttpMethod.DELETE, "/materia/**", "/grupo/**")
+						.hasRole("GESTOR")
+						.anyRequest().authenticated())
+				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+				.authenticationProvider(authenticationProvider())
+				.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
 		return http.build();
 	}
 
-	/**
-     * Configuracion CORS que permite peticiones desde cualquier origen.
-     * Habilita los metodos HTTP necesarios para una API REST.
-     *
-     * @return Fuente de configuracion CORS registrada para todas las rutas.
-	 */
 	@Bean
 	public CorsConfigurationSource corsConfigurationSource() {
 		CorsConfiguration config = new CorsConfiguration();
@@ -103,34 +73,18 @@ public class SecurityConfig {
 		return source;
 	}
 
-	/**
-     * Proveedor de autenticacion basado en UserDetailsService y BCrypt.
-     *
-     * @return Proveedor de autenticacion configurado.
-	 */
 	@Bean
-    public AuthenticationProvider authenticationProvider() {
-	    DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
-	    provider.setPasswordEncoder(passwordEncoder());
-	    return provider;
-    }
+	public AuthenticationProvider authenticationProvider() {
+		DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider(userDetailsService);
+		authProvider.setPasswordEncoder(passwordEncoder());
+		return authProvider;
+	}
 
-	/**
-	 * AuthenticationManager expuesto como bean para su inyeccion en los controladores
-     * que requieren autenticacion manual.
-     *
-     * @param config Configuracion de autenticacion de Spring.
-     * @return AuthenticationManager configurado.
-	 */
 	@Bean
-	public AuthenticationManager authenticationManager(
-			AuthenticationConfiguration config) throws Exception {
+	public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
 		return config.getAuthenticationManager();
 	}
 
-	/**
-	 * Encoder de contrasenas con BCrypt.
-	 */
 	@Bean
 	public PasswordEncoder passwordEncoder() {
 		return new BCryptPasswordEncoder();

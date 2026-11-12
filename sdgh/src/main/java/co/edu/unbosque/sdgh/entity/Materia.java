@@ -2,7 +2,6 @@ package co.edu.unbosque.sdgh.entity;
 
 import java.util.Objects;
 
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,9 +15,6 @@ public class Materia {
 
 	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
-	
-	@Column(unique = true, nullable = false)
-	private String codigo;
 
 	private String nombre;
 	private int semestre;
@@ -29,29 +25,20 @@ public class Materia {
 		super();
 	}
 	
-	public Materia(String codigo, String nombre, int semestre, int ncreditos, boolean correlativa) {
+	public Materia(String nombre, int semestre, int ncreditos, boolean correlativa) {
 		super();
-		this.codigo = codigo;
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
 		this.correlativa = correlativa;
 	}
-	
+
 	public long getId() {
 		return id;
 	}
 
 	public void setId(long id) {
 		this.id = id;
-	}
-
-	public String getCodigo() {
-		return codigo;
-	}
-
-	public void setCodigo(String codigo) {
-		this.codigo = codigo;
 	}
 
 	public String getNombre() {
@@ -86,26 +73,15 @@ public class Materia {
 		this.correlativa = correlativa;
 	}
 
-	/**
-	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las horas
-	 * de la materia, porque cada sesion dura 2 horas (RF3, RF7).
-	 * @return Retorna el numero de sesiones semanales.
-	 */
-	@Transient
-	public int getHorasDeLaMateria() {
-		int horasPorCredito = 1;
-		return ncreditos * horasPorCredito;
-	}
-	
-	@Transient
-	public int getSesionesSemanales() {
-		
-		return (getHorasDeLaMateria() + 1) / 2;
+	@Override
+	public String toString() {
+		return "Materia [id=" + id + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
+				+ ", correlativa=" + correlativa + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(codigo, Boolean.valueOf(correlativa), Long.valueOf(id), Integer.valueOf(ncreditos), nombre,
+		return Objects.hash(Boolean.valueOf(correlativa), Long.valueOf(id), Integer.valueOf(ncreditos), nombre,
 				Integer.valueOf(semestre));
 	}
 
@@ -118,7 +94,10 @@ public class Materia {
 		if (getClass() != obj.getClass())
 			return false;
 		Materia other = (Materia) obj;
-		return Objects.equals(codigo, other.codigo) && correlativa == other.correlativa && id == other.id
-				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
+		return correlativa == other.correlativa && id == other.id && ncreditos == other.ncreditos
+				&& Objects.equals(nombre, other.nombre) && semestre == other.semestre;
 	}
+	
+
+	
 }
