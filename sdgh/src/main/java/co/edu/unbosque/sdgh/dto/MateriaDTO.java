@@ -12,19 +12,16 @@ public class MateriaDTO {
 
 	private int ncreditos;
 
-	private int horasDeLaMateria;
-
 	private boolean correlativa;
 
 	public MateriaDTO() {
 	}
 
-	public MateriaDTO(String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
+	public MateriaDTO(String nombre, int semestre, int ncreditos,  boolean correlativa) {
 		super();
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
-		this.horasDeLaMateria = horasDeLaMateria;
 		this.correlativa = correlativa;
 	}
 
@@ -60,14 +57,6 @@ public class MateriaDTO {
 		this.ncreditos = ncreditos;
 	}
 
-	public int getHorasDeLaMateria() {
-		return horasDeLaMateria;
-	}
-
-	public void setHorasDeLaMateria(int horasDeLaMateria) {
-		this.horasDeLaMateria = horasDeLaMateria;
-	}
-
 	public boolean isCorrelativa() {
 		return correlativa;
 	}
@@ -76,25 +65,17 @@ public class MateriaDTO {
 		this.correlativa = correlativa;
 	}
 	
-	/**
-	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las horas
-	 * de la materia, porque cada sesion dura 2 horas (RF3, RF7).
-	 * @return Retorna el numero de sesiones semanales.
-	 */
-	public int getSesionesSemanales() {
-		return horasDeLaMateria / 2;
-	}
-
+	
 	@Override
 	public String toString() {
 		return "MateriaDTO [id=" + id + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
-				+ ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
+				+ ", correlativa=" + correlativa + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
-				Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
+		return Objects.hash(Boolean.valueOf(correlativa), Long.valueOf(id), Integer.valueOf(ncreditos), nombre,
+				Integer.valueOf(semestre));
 	}
 
 	@Override
@@ -106,8 +87,10 @@ public class MateriaDTO {
 		if (getClass() != obj.getClass())
 			return false;
 		MateriaDTO other = (MateriaDTO) obj;
-		return correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
-				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
+		return correlativa == other.correlativa && id == other.id && ncreditos == other.ncreditos
+				&& Objects.equals(nombre, other.nombre) && semestre == other.semestre;
 	}
+
+	
 
 }

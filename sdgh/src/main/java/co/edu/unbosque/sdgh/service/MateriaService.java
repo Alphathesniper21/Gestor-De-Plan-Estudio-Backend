@@ -22,7 +22,8 @@ import co.edu.unbosque.sdgh.repository.MateriaRepository;
  * Servicio encargado de gestionar las operaciones CRUD de las materias del plan
  * de estudios (CU02 - RF01, RF26). Las validaciones se hacen al inicio de cada
  * metodo y lanzan excepciones personalizadas que son capturadas en el
- * controlador.
+ * controlador. Las horas semanales de cada materia no se reciben ni se guardan:
+ * se calculan a partir de sus creditos (Decreto 1330 de 2019, art. 2.5.3.2.4.1).
  */
 @Service
 public class MateriaService implements CRUDOperation<MateriaDTO> {
@@ -36,6 +37,30 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 * Semestre maximo del plan de estudios (Ing. de Sistemas SNIES 4952).
 	 */
 	private static final int SEMESTRE_MAXIMO = 9;
+
+	/**
+	 * Horas de trabajo academico del estudiante que equivalen a un credito en un
+	 * periodo academico (Decreto 1330 de 2019, art. 2.5.3.2.4.1).
+	 */
+	private static final int HORAS_POR_CREDITO = 48;
+
+	/**
+	 * Horas de trabajo independiente por cada hora con acompanamiento directo del
+	 * docente en pregrado. Es una decision institucional: confirmar con el
+	 * Programa.
+	 */
+	private static final int HORAS_INDEPENDIENTES_POR_HORA_DIRECTA = 2;
+
+	/**
+	 * Semanas del periodo academico. Es una decision institucional: confirmar con
+	 * el Programa.
+	 */
+	private static final int SEMANAS_PERIODO = 16;
+
+	/**
+	 * Duracion en horas de cada sesion de clase (RF3).
+	 */
+	private static final int HORAS_POR_SESION = 2;
 
 	/**
 	 * Repositorio encargado de las operaciones de persistencia de materias.
@@ -57,12 +82,13 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
 	 * Metodo que crea una nueva materia validando los datos obligatorios y la
-	 * unicidad de id y nombre (CU02 / RF01).
+	 * unicidad del nombre (CU02 / RF01). Las horas de la materia no se guardan:
+	 * se calculan a partir de sus creditos con {@link #calcularHorasSemanales(int)}.
 	 * @param newData DTO con la informacion de la materia a crear.
 	 * @return Retorna 0 si la materia fue creada correctamente.
 	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos o
 	 *         fuera de rango.
-	 * @throws RecursoDuplicadoException si el id o el nombre ya existen.
+	 * @throws RecursoDuplicadoException si el nombre ya existe.
 	 */
 	@Override
 	public int create(MateriaDTO newData) {
@@ -79,9 +105,6 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		}
 		if (newData.getNcreditos() <= 0) {
 			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
-		}
-		if (newData.getHorasDeLaMateria() <= 0) {
-			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
 
 		String nombre = newData.getNombre().trim();
@@ -134,11 +157,12 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 //	}
 
 	/**
-	 * Metodo que elimina una materia mediante su codigo unico de tipo Long (RF26).
-	 * @param codigo Codigo unico de la materia a eliminar.
+	 * Metodo que elimina una materia mediante su identificador unico de tipo Long
+	 * (RF26).
+	 * @param id Identificador unico de la materia a eliminar.
 	 * @return Retorna 0 si la materia fue eliminada correctamente.
-	 * @throws DatosInvalidosException si el codigo es nulo.
-	 * @throws RecursoNoEncontradoException si la materia nidte.
+	 * @throws DatosInvalidosException si el id es nulo.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	@Override
 	public int deleteById(Long id) {
@@ -155,29 +179,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que actualiza una materia mediante su identificador (id) recibido
-	 * como Integer (CU02 / RF26).
-	 * @param id id de la materia a actualizar.
-	 * @param newData DTO con la nueva informacion de la materia.
-	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el identificador es nulo o los datos
-	 *         nuevos son invalidos o estan incompletos.
-	 * @throws RecursoNoEncontradoException si la materia no existe.
-	 * @throws RecursoDuplicadoException si el nombre pertenece a otra materia.
-	 */
-//	@Override
-//	public int updateById(Long id, MateriaDTO newData) {
-//
-//		if (id == null) {
-//			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
-//		}
-//
-//		return updateById(id.longValue(), newData);
-//	}
-
-	/**
-	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF26).
-	 * @param id de la materia a actualizar.
+	 * Metodo que actualiza una materia mediante su identificador unico de tipo
+	 * Long (CU02 / RF26).
+	 * @param id Identificador de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
 	 * @throws DatosInvalidosException si el id es nulo o los datos nuevos son
@@ -208,9 +212,6 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getNcreditos() <= 0) {
 			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
 		}
-		if (newData.getHorasDeLaMateria() <= 0) {
-			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
-		}
 
 		String nombre = newData.getNombre().trim();
 		Optional<Materia> porNombre = materiaRepo.findByNombre(nombre);
@@ -222,7 +223,6 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		temp.setNombre(nombre);
 		temp.setSemestre(newData.getSemestre());
 		temp.setNcreditos(newData.getNcreditos());
-		temp.setHorasDeLaMateria(newData.getHorasDeLaMateria());
 		temp.setCorrelativa(newData.isCorrelativa());
 		materiaRepo.save(temp);
 		return 0;
@@ -239,42 +239,27 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que verifica si una materia existe mediante su identificador (id)
-	 * recibido como Integer.
-	 * @param id id de la materia a verificar.
-	 * @return Retorna true si la materia existe o false en caso contrario.
-	 */
-//	@Override
-//	public boolean exist(Long id) {
-//
-//		if (id == null) {
-//			return false;
-//		}
-//
-//		return existByCodigo(id.longValue());
-//	}
-
-	/**
-	 * Metodo que verifica si una materia existe mediante su codigo de tipo Long.
-	 * @param codigo Codigo unico de la materia a verificar.
+	 * Metodo que verifica si una materia existe mediante su identificador de tipo
+	 * Long.
+	 * @param id Identificador unico de la materia a verificar.
 	 * @return Retorna true si la materia existe o false en caso contrario.
 	 */
 	@Override
 	public boolean existById(Long id) {
-		
+
 		return id != null && materiaRepo.existsById(id);
 	}
 
 	/**
-	 * Metodo que busca una materia mediante su codigo unico.
-	 * @param codigo Codigo de la materia.
+	 * Metodo que busca una materia mediante su identificador unico.
+	 * @param id Identificador de la materia.
 	 * @return Retorna la materia en formato DTO.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	public MateriaDTO getById(long id) {
 
 		Materia encontrada = materiaRepo.findById(id)
-				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + id));
+				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
 
 		return mapper.map(encontrada, MateriaDTO.class);
 	}
@@ -292,8 +277,8 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
 		}
 
-		Materia encontrada = materiaRepo.findByNombre(nombre.trim())
-				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el nombre " + nombre.trim()));
+		Materia encontrada = materiaRepo.findByNombre(nombre.trim()).orElseThrow(
+				() -> new RecursoNoEncontradoException("No existe una materia con el nombre " + nombre.trim()));
 
 		return mapper.map(encontrada, MateriaDTO.class);
 	}
@@ -341,5 +326,36 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		});
 
 		return dtoList;
+	}
+
+	/**
+	 * Metodo que calcula las horas semanales con acompanamiento directo del docente
+	 * a partir de los creditos de la materia, redondeadas hacia arriba. Un credito
+	 * equivale a 48 horas de trabajo academico del estudiante por periodo
+	 * academico (Decreto 1330 de 2019, art. 2.5.3.2.4.1); la proporcion entre
+	 * horas con docente y horas de trabajo independiente y las semanas del periodo
+	 * son decision de la institucion y estan en las constantes de esta clase. Con
+	 * los valores actuales (relacion 1:2 y 16 semanas) cada credito equivale a 1
+	 * hora semanal.
+	 * @param ncreditos Numero de creditos de la materia.
+	 * @return Retorna las horas semanales de la materia.
+	 */
+	public int calcularHorasSemanales(int ncreditos) {
+
+		int horasDirectasPeriodo = (ncreditos * HORAS_POR_CREDITO) / (1 + HORAS_INDEPENDIENTES_POR_HORA_DIRECTA);
+		return (horasDirectasPeriodo + SEMANAS_PERIODO - 1) / SEMANAS_PERIODO;
+	}
+
+	/**
+	 * Metodo que calcula las sesiones semanales de 2 horas que necesita la materia
+	 * a partir de sus creditos, redondeadas hacia arriba (RF1, RF3, RF7). Con los
+	 * valores actuales, una materia de 3 creditos tiene 3 horas semanales y por
+	 * tanto 2 sesiones.
+	 * @param ncreditos Numero de creditos de la materia.
+	 * @return Retorna las sesiones semanales de la materia.
+	 */
+	public int calcularSesionesSemanales(int ncreditos) {
+
+		return (calcularHorasSemanales(ncreditos) + HORAS_POR_SESION - 1) / HORAS_POR_SESION;
 	}
 }

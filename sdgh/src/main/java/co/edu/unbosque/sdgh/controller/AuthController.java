@@ -88,7 +88,7 @@ public class AuthController {
 			}
 
 			UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-			String jwt = jwtUtil.generateAccessToken(userDetails);
+			String jwt = jwtUtil.generateToken(userDetails);
 
 			RolUsuario rol = null;
 			if (userDetails instanceof Usuario) {
