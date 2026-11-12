@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
+import co.edu.unbosque.sdgh.entity.RolUsuario;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
@@ -55,13 +56,13 @@ public class UsuarioController {
 	})
 	public ResponseEntity<String> crear(@RequestParam String nombre,
 			@RequestParam String correo, @RequestParam String username, @RequestParam String password,
-			@RequestParam String rol) {
+			@RequestParam RolUsuario rol) {
 		try {
 			UsuarioDTO nuevo = new UsuarioDTO(nombre, correo, username, password, rol);
 			usuarioServ.create(nuevo);
 			return new ResponseEntity<>("Usuario creado exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException | RecursoDuplicadoException e) {
-			return new ResponseEntity<>("Error al crear usuario: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al crear usuario: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -81,7 +82,7 @@ public class UsuarioController {
 		try {
 			return new ResponseEntity<>(usuarioServ.getById(id), HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 	}
 
@@ -91,7 +92,7 @@ public class UsuarioController {
 		try {
 			return new ResponseEntity<>(usuarioServ.getByCorreo(correo), HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 	}
 
@@ -101,7 +102,7 @@ public class UsuarioController {
 		try {
 			return new ResponseEntity<>(usuarioServ.getByUsername(username), HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 	}
 
@@ -118,7 +119,7 @@ public class UsuarioController {
 	@GetMapping("/existe/{codigo}")
 	@Operation(summary = "Verificar existencia de usuario", description = "Verifica si existe un usuario con el codigo proporcionado.")
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
-		if (usuarioServ.exist(id)) {
+		if (usuarioServ.existById(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
 		}
 		return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
@@ -133,7 +134,7 @@ public class UsuarioController {
 		@ApiResponse(responseCode = "409", description = "Correo de otro usuario")
 	})
 	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
-			@RequestParam String correo, @RequestParam String rol,
+			@RequestParam String correo, @RequestParam RolUsuario rol,
 			@RequestParam(required = false) String password) {
 		try {
 			UsuarioDTO nuevo = new UsuarioDTO();
@@ -145,7 +146,7 @@ public class UsuarioController {
 			usuarioServ.updateById(id, nuevo);
 			return new ResponseEntity<>("Usuario actualizado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException e) {
-			return new ResponseEntity<>("Error al actualizar usuario: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al actualizar usuario: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -156,7 +157,7 @@ public class UsuarioController {
 			usuarioServ.deleteById(id);
 			return new ResponseEntity<>("Usuario eliminado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -165,13 +166,5 @@ public class UsuarioController {
 	 * @param e Excepcion capturada.
 	 * @return Retorna el codigo HTTP.
 	 */
-	public HttpStatus estado(RuntimeException e) {
-		if (e instanceof RecursoNoEncontradoException) {
-			return HttpStatus.NOT_FOUND;
-		}
-		if (e instanceof RecursoDuplicadoException) {
-			return HttpStatus.CONFLICT;
-		}
-		return HttpStatus.BAD_REQUEST;
-	}
+	
 }

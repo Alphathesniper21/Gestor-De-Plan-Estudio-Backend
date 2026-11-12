@@ -44,15 +44,15 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	@Autowired
 	private ModelMapper mapper;
 
-	/**
-	 * Constante de rol de gestor
-	 */
-	private final String ROL_GESTOR= "GESTOR";
-	
-	/**
-	 * Constante de rol de consulta
-	 */
-	private final String ROL_CONSULTA= "CONSULTA";
+//	/**
+//	 * Constante de rol de gestor
+//	 */
+//	private final String ROL_GESTOR= "GESTOR";
+//	
+//	/**
+//	 * Constante de rol de consulta
+//	 */
+//	private final String ROL_CONSULTA= "CONSULTA";
 	/**
 	 * Constructor vacio de la clase UsuarioService.
 	 */
@@ -80,9 +80,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		if (data == null) {
 			throw new DatosInvalidosException("Los datos del usuario no pueden ser nulos");
 		}
-//		if (data.getId() <= 0) {
-//			throw new DatosInvalidosException("El codigo del usuario debe ser un numero positivo");
-//		}
 		if (data.getNombre() == null || data.getNombre().isBlank()) {
 			throw new DatosInvalidosException("El nombre no puede estar vacio");
 		}
@@ -95,11 +92,8 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		if (!data.getCorreo().trim().matches(regexCorreo)) {
 			throw new DatosInvalidosException("El correo no tiene un formato valido (ej: usuario@dominio.com)");
 		}
-		if (data.getRol() == null || data.getRol().isBlank()) {
+		if (data.getRol() == null) {
 			throw new DatosInvalidosException("El rol no puede estar vacio");
-		}
-		if (!data.getRol().trim().equalsIgnoreCase(ROL_GESTOR) && !data.getRol().trim().equalsIgnoreCase(ROL_CONSULTA)) {
-			throw new DatosInvalidosException("El rol debe ser " + ROL_GESTOR + " o " + ROL_CONSULTA);
 		}
 		if (data.getUsername() == null || data.getUsername().isBlank()) {
 			throw new DatosInvalidosException("El nombre de usuario no puede estar vacio");
@@ -130,9 +124,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		String correo = data.getCorreo().trim();
 		String username = data.getUsername().trim();
 
-		if (usuarioRepo.existsById(data.getId())) {
-			throw new RecursoDuplicadoException("Ya existe un usuario con el codigo " + data.getId());
-		}
 		if (usuarioRepo.existsByCorreo(correo)) {
 			throw new RecursoDuplicadoException("Ya existe un usuario con el correo " + correo);
 		}
@@ -144,7 +135,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		entity.setNombre(data.getNombre().trim());
 		entity.setCorreo(correo);
 		entity.setUsername(username);
-		entity.setRol(data.getRol().trim().toUpperCase());
+		entity.setRol(data.getRol());
 		entity.setPassword(passwordEncoder.encode(data.getPassword()));
 		usuarioRepo.save(entity);
 		return 0;
@@ -211,8 +202,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 
 		String regexNombre = "[\\p{L} \\-]+";
 		String regexCorreo = "^[\\w._%+\\-]+@[\\w.\\-]+\\.[a-zA-Z]{2,}$";
-		String rolGestor = "GESTOR";
-		String rolConsulta = "CONSULTA";
 
 		if (id == null) {
 			throw new DatosInvalidosException("El codigo del usuario no puede ser nulo");
@@ -235,13 +224,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		}
 		if (!newData.getCorreo().trim().matches(regexCorreo)) {
 			throw new DatosInvalidosException("El correo no tiene un formato valido (ej: usuario@dominio.com)");
-		}
-		if (newData.getRol() == null || newData.getRol().isBlank()) {
-			throw new DatosInvalidosException("El rol no puede estar vacio");
-		}
-		if (!newData.getRol().trim().equalsIgnoreCase(rolGestor)
-				&& !newData.getRol().trim().equalsIgnoreCase(rolConsulta)) {
-			throw new DatosInvalidosException("El rol debe ser " + rolGestor + " o " + rolConsulta);
 		}
 
 		boolean cambiaContrasena = newData.getPassword() != null && !newData.getPassword().isBlank();
@@ -270,7 +252,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 
 		temp.setNombre(newData.getNombre().trim());
 		temp.setCorreo(correo);
-		temp.setRol(newData.getRol().trim().toUpperCase());
+		temp.setRol(newData.getRol());
 
 		if (cambiaContrasena) {
 			temp.setPassword(passwordEncoder.encode(newData.getPassword()));
@@ -298,7 +280,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	 * @return true si existe, false en caso contrario.
 	 */
 	@Override
-	public boolean exist(Long id) {
+	public boolean existById(Long id) {
 
 		return id != null && usuarioRepo.existsById(id);
 	}
@@ -367,14 +349,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		UsuarioDTO dto = mapper.map(encontrado, UsuarioDTO.class);
 		dto.setPassword(null);
 		return dto;
-	}
-
-	public String getROL_GESTOR() {
-		return ROL_GESTOR;
-	}
-
-	public String getROL_CONSULTA() {
-		return ROL_CONSULTA;
 	}
 	
 }

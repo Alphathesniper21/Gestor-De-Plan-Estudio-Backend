@@ -63,18 +63,18 @@ public class GrupoController {
 		@ApiResponse(responseCode = "406", description = "Cupo por encima del limite institucional"),
 		@ApiResponse(responseCode = "409", description = "La materia ya tiene ese numero de grupo")
 	})
-	public ResponseEntity<String> crear(@RequestParam long id, @RequestParam int numeroGrupo,
+	public ResponseEntity<String> crear(@RequestParam long materiaId, @RequestParam int numeroGrupo,
 			@RequestParam int cupoPlaneado) {
 		try {
 			GrupoDTO nuevo = new GrupoDTO();
-			nuevo.setMateriaId(id);
+			nuevo.setMateriaId(materiaId);
 			nuevo.setNumeroGrupo(numeroGrupo);
 			nuevo.setCupoPlaneado(cupoPlaneado);
 			grupoServ.create(nuevo);
 			return new ResponseEntity<>("Grupo creado exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
 				| CupoExcedidoException e) {
-			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -108,7 +108,7 @@ public class GrupoController {
 		try {
 			return new ResponseEntity<>(grupoServ.getById(id), HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 	}
 
@@ -130,7 +130,7 @@ public class GrupoController {
 			}
 			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException e) {
-			return new ResponseEntity<>(estado(e));
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -161,7 +161,7 @@ public class GrupoController {
 		@ApiResponse(responseCode = "204", description = "Grupo no encontrado")
 	})
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
-		if (grupoServ.exist(id)) {
+		if (grupoServ.existById(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
 		}
 		return new ResponseEntity<>(false, HttpStatus.NO_CONTENT);
@@ -191,7 +191,7 @@ public class GrupoController {
 			return new ResponseEntity<>("Grupo actualizado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
 				| CupoExcedidoException e) {
-			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -210,7 +210,7 @@ public class GrupoController {
 			grupoServ.deleteById(id);
 			return new ResponseEntity<>("Grupo eliminado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), estado(e));
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -219,16 +219,5 @@ public class GrupoController {
 	 * @param e Excepcion capturada.
 	 * @return Retorna el codigo HTTP.
 	 */
-	private HttpStatus estado(RuntimeException e) {
-		if (e instanceof RecursoNoEncontradoException) {
-			return HttpStatus.NOT_FOUND;
-		}
-		if (e instanceof RecursoDuplicadoException) {
-			return HttpStatus.CONFLICT;
-		}
-		if (e instanceof CupoExcedidoException) {
-			return HttpStatus.NOT_ACCEPTABLE;
-		}
-		return HttpStatus.BAD_REQUEST;
-	}
+	
 }

@@ -15,6 +15,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
+import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
+import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.MateriaService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import java.util.List;
@@ -49,12 +52,14 @@ public class MateriaController {
 	public ResponseEntity<String> crear(@RequestParam String nombre,
 			@RequestParam int semestre, @RequestParam int ncreditos,
 			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
-		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
-		int status = materiaService.create(nueva);
-		if (status == 0) {
+		try {
+			MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			materiaService.create(nueva);
 			return new ResponseEntity<>("Materia creada exitosamente", HttpStatus.CREATED);
-		} else {
-			return new ResponseEntity<>("Error al crear materia", HttpStatus.NOT_ACCEPTABLE);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -78,19 +83,18 @@ public class MateriaController {
 	}
 
 	/**
-	 * Busca una materia por codigo. 202 si existe, 404 si no se encuentra.
+	 * Busca una materia por id. 202 si existe, 404 si no se encuentra.
 	 */
-	@GetMapping("/mostrar/{codigo}")
-	@Operation(summary = "Obtener materia por codigo", description = "Retorna una materia segun su codigo.")
+	@GetMapping("/mostrar/{id}")
+	@Operation(summary = "Obtener materia por id", description = "Retorna una materia segun su id.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "202", description = "Materia encontrada"),
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada")
 	})
-	public ResponseEntity<MateriaDTO> obtenerPorCodigo(@PathVariable Long codigo) {
-		MateriaDTO dto = materiaService.getByCodigo(codigo);
-		if (dto != null) {
-			return new ResponseEntity<>(dto, HttpStatus.ACCEPTED);
-		} else {
+	public ResponseEntity<MateriaDTO> obtenerPorId(@PathVariable Long id) {
+		try {
+			return new ResponseEntity<>(materiaService.getById(id), HttpStatus.ACCEPTED);
+		} catch (RecursoNoEncontradoException e) {
 			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
 		}
 	}
@@ -150,16 +154,16 @@ public class MateriaController {
 	}
 
 	/**
-	 * Verifica si existe una materia por codigo. 202 si existe, 204 si no se encuentra.
+	 * Verifica si existe una materia por id. 202 si existe, 204 si no se encuentra.
 	 */
-	@GetMapping("/existe/{codigo}")
-	@Operation(summary = "Verificar existencia de materia", description = "Verifica si existe una materia con el codigo proporcionado.")
+	@GetMapping("/existe/{id}")
+	@Operation(summary = "Verificar existencia de materia", description = "Verifica si existe una materia con el id proporcionado.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "202", description = "Materia encontrada"),
 			@ApiResponse(responseCode = "204", description = "Materia no encontrada")
 	})
-	public ResponseEntity<Boolean> existe(@PathVariable Long codigo) {
-		boolean encontrado = materiaService.existByCodigo(codigo);
+	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
+		boolean encontrado = materiaService.existById(id);
 		if (encontrado) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
 		} else {
@@ -168,11 +172,11 @@ public class MateriaController {
 	}
 
 	/**
-	 * Actualiza una materia por codigo. 202 exitoso, 404 no encontrada, 400 error.
+	 * Actualiza una materia por id. 202 exitoso, 404 no encontrada, 400 error.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su codigo. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su id. Requiere rol ADMINISTRADOR.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "202", description = "Materia actualizada exitosamente"),
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada"),
@@ -182,10 +186,10 @@ public class MateriaController {
 			@RequestParam int semestre, @RequestParam int ncreditos,
 			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
 		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
-		if (!materiaService.existByCodigo(id)) {
+		if (!materiaService.existById(id)) {
 			return new ResponseEntity<>("Materia no encontrada", HttpStatus.NOT_FOUND);
 		}
-		int status = materiaService.updateByCodigo(id, nueva);
+		int status = materiaService.updateById(id, nueva);
 		if (status == 0) {
 			return new ResponseEntity<>("Materia actualizada exitosamente", HttpStatus.ACCEPTED);
 		} else {
@@ -196,7 +200,7 @@ public class MateriaController {
 	/**
 	 * Elimina una materia por codigo. 202 si fue exitoso, 404 si no se encontro.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@DeleteMapping("/eliminar/{codigo}")
 	@Operation(summary = "Eliminar materia", description = "Elimina una materia por su codigo. Requiere rol ADMINISTRADOR.")
 	@ApiResponses(value = {
@@ -204,7 +208,7 @@ public class MateriaController {
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada")
 	})
 	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Long codigo) {
-		int status = materiaService.deleteByCodigo(codigo);
+		int status = materiaService.deleteById(codigo);
 		if (status == 0) {
 			return new ResponseEntity<>("Materia eliminada exitosamente", HttpStatus.ACCEPTED);
 		} else {

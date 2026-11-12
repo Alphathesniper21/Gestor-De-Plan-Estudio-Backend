@@ -2,6 +2,8 @@ package co.edu.unbosque.sdgh.dto;
 
 import java.util.Objects;
 
+import co.edu.unbosque.sdgh.entity.RolUsuario;
+
 /**
  * DTO que transporta los datos de un usuario del sistema. La contrasena solo
  * se usa al recibir un registro o un cambio; nunca se devuelve al cliente.
@@ -37,13 +39,13 @@ public class UsuarioDTO {
 	/**
 	 * Rol del usuario: GESTOR o CONSULTA.
 	 */
-	private String rol;
+	private RolUsuario rol;
 
 	public UsuarioDTO() {
 		// TODO Auto-generated constructor stub
 	}
 
-	public UsuarioDTO(String nombre, String correo, String username, String password, String rol) {
+	public UsuarioDTO(String nombre, String correo, String username, String password, RolUsuario rol) {
 		super();
 		this.nombre = nombre;
 		this.correo = correo;
@@ -51,6 +53,8 @@ public class UsuarioDTO {
 		this.password = password;
 		this.rol = rol;
 	}
+
+
 
 	public long getId() {
 		return id;
@@ -92,11 +96,11 @@ public class UsuarioDTO {
 		this.password = password;
 	}
 
-	public String getRol() {
+	public RolUsuario getRol() {
 		return rol;
 	}
 
-	public void setRol(String rol) {
+	public void setRol(RolUsuario rol) {
 		this.rol = rol;
 	}
 

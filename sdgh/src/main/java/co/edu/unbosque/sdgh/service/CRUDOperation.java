@@ -57,6 +57,6 @@ public interface CRUDOperation<T> {
 	 * @param id ID de la entidad a verificar.
 	 * @return true si existe, false en caso contrario.
 	 */
-	public boolean exist(Long id);
+	public boolean existById(Long id);
 
 }
