@@ -32,8 +32,9 @@ import jakarta.transaction.Transactional;
 /**
  * Controlador REST para gestionar los grupos de un curso (RF2). Rutas bajo
  * /grupo. Las consultas estan abiertas a cualquier usuario autenticado; crear,
- * actualizar y eliminar requieren rol ADMIN. Las excepciones del service se
- * capturan aqui y se traducen a codigos HTTP.
+ * actualizar y eliminar requieren rol GESTOR. Las excepciones del service se
+ * capturan aqui y se traducen a codigos HTTP: 404 no existe, 409 duplicado,
+ * 406 cupo excedido y 400 los demas errores de validacion.
  */
 @RestController
 @RequestMapping("/grupo")
@@ -53,9 +54,9 @@ public class GrupoController {
 	 * Crea un nuevo grupo. 201 si fue exitoso, o el codigo del error de
 	 * validacion con su mensaje.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
-	@Operation(summary = "Crear grupo", description = "Crea un grupo de una materia validando cupo y numero de grupo. Requiere rol ADMIN.")
+	@Operation(summary = "Crear grupo", description = "Crea un grupo de una materia validando cupo y numero de grupo. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "201", description = "Grupo creado exitosamente"),
 		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
@@ -72,8 +73,13 @@ public class GrupoController {
 			nuevo.setCupoPlaneado(cupoPlaneado);
 			grupoServ.create(nuevo);
 			return new ResponseEntity<>("Grupo creado exitosamente", HttpStatus.CREATED);
-		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
-				| CupoExcedidoException e) {
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.CONFLICT);
+		} catch (CupoExcedidoException e) {
+			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.NOT_ACCEPTABLE);
+		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
@@ -122,9 +128,9 @@ public class GrupoController {
 		@ApiResponse(responseCode = "204", description = "La materia no tiene grupos"),
 		@ApiResponse(responseCode = "400", description = "Id de materia invalido")
 	})
-	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long id) {
+	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long materiaId) {
 		try {
-			List<GrupoDTO> lista = grupoServ.getByMateriaId(id);
+			List<GrupoDTO> lista = grupoServ.getByMateriaId(materiaId);
 			if (lista.isEmpty()) {
 				return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
 			}
@@ -171,9 +177,9 @@ public class GrupoController {
 	 * Actualiza el numero de grupo y el cupo planeado. 202 si fue exitoso, o el
 	 * codigo del error de validacion con su mensaje.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar grupo", description = "Actualiza el numero de grupo y el cupo planeado. Requiere rol ADMIN.")
+	@Operation(summary = "Actualizar grupo", description = "Actualiza el numero de grupo y el cupo planeado. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Grupo actualizado exitosamente"),
 		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
@@ -189,8 +195,13 @@ public class GrupoController {
 			nuevo.setCupoPlaneado(cupoPlaneado);
 			grupoServ.updateById(id, nuevo);
 			return new ResponseEntity<>("Grupo actualizado exitosamente", HttpStatus.ACCEPTED);
-		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
-				| CupoExcedidoException e) {
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.CONFLICT);
+		} catch (CupoExcedidoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.NOT_ACCEPTABLE);
+		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
@@ -198,9 +209,9 @@ public class GrupoController {
 	/**
 	 * Elimina un grupo y sus sesiones. 202 si fue exitoso, 404 si no se encontro.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@DeleteMapping("/eliminar/{id}")
-	@Operation(summary = "Eliminar grupo", description = "Elimina un grupo y sus sesiones. Requiere rol ADMIN.")
+	@Operation(summary = "Eliminar grupo", description = "Elimina un grupo y sus sesiones. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Grupo eliminado exitosamente"),
 		@ApiResponse(responseCode = "404", description = "Grupo no encontrado")
@@ -210,14 +221,8 @@ public class GrupoController {
 			grupoServ.deleteById(id);
 			return new ResponseEntity<>("Grupo eliminado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.NOT_FOUND);
 		}
 	}
 
-	/**
-	 * Traduce la excepcion del service al codigo HTTP correspondiente.
-	 * @param e Excepcion capturada.
-	 * @return Retorna el codigo HTTP.
-	 */
-	
 }

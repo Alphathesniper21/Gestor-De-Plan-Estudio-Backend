@@ -2,6 +2,7 @@ package co.edu.unbosque.sdgh.entity;
 
 import java.util.Objects;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -16,6 +17,12 @@ public class Materia {
 	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
 
+	/**
+	 * Codigo institucional del curso (por ejemplo, 15318). Es unico (RF1).
+	 */
+	@Column(unique = true, nullable = false)
+	private long codigo;
+
 	private String nombre;
 	private int semestre;
 	private int ncreditos;
@@ -26,8 +33,10 @@ public class Materia {
 		super();
 	}
 	
-	public Materia(String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
+	public Materia(long codigo, String nombre, int semestre, int ncreditos, int horasDeLaMateria,
+			boolean correlativa) {
 		super();
+		this.codigo = codigo;
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
@@ -41,6 +50,14 @@ public class Materia {
 
 	public void setId(long id) {
 		this.id = id;
+	}
+
+	public long getCodigo() {
+		return codigo;
+	}
+
+	public void setCodigo(long codigo) {
+		this.codigo = codigo;
 	}
 
 	public String getNombre() {
@@ -95,13 +112,13 @@ public class Materia {
 
 	@Override
 	public String toString() {
-		return "Materia [id=" + id + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
+		return "Materia [id=" + id + ", codigo=" + codigo + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
 				+ ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
+		return Objects.hash(Long.valueOf(codigo), Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
 				Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
 	}
 
@@ -114,7 +131,7 @@ public class Materia {
 		if (getClass() != obj.getClass())
 			return false;
 		Materia other = (Materia) obj;
-		return correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
+		return codigo == other.codigo && correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
 				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
 	}
 }

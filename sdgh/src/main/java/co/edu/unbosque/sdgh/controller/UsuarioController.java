@@ -30,7 +30,8 @@ import jakarta.transaction.Transactional;
 /**
  * Controlador REST para gestionar los usuarios del aplicativo. Rutas bajo
  * /usuario. Todos los endpoints requieren rol GESTOR. Las excepciones del
- * service se capturan aqui y se traducen a codigos HTTP.
+ * service se capturan aqui y se traducen a codigos HTTP: 404 no existe, 409
+ * duplicado y 400 los demas errores de validacion.
  */
 @RestController
 @RequestMapping("/usuario")
@@ -61,7 +62,9 @@ public class UsuarioController {
 			UsuarioDTO nuevo = new UsuarioDTO(nombre, correo, username, password, rol);
 			usuarioServ.create(nuevo);
 			return new ResponseEntity<>("Usuario creado exitosamente", HttpStatus.CREATED);
-		} catch (DatosInvalidosException | RecursoDuplicadoException e) {
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al crear usuario: " + e.getMessage(), HttpStatus.CONFLICT);
+		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al crear usuario: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
@@ -76,9 +79,9 @@ public class UsuarioController {
 		return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 	}
 
-	@GetMapping("/mostrar/{codigo}")
-	@Operation(summary = "Obtener usuario por codigo", description = "Retorna un usuario segun su codigo.")
-	public ResponseEntity<UsuarioDTO> obtenerPorCodigo(@PathVariable Long id) {
+	@GetMapping("/mostrar/{id}")
+	@Operation(summary = "Obtener usuario por id", description = "Retorna un usuario segun su id.")
+	public ResponseEntity<UsuarioDTO> obtenerPorId(@PathVariable Long id) {
 		try {
 			return new ResponseEntity<>(usuarioServ.getById(id), HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
@@ -116,8 +119,8 @@ public class UsuarioController {
 		return new ResponseEntity<>(count, HttpStatus.ACCEPTED);
 	}
 
-	@GetMapping("/existe/{codigo}")
-	@Operation(summary = "Verificar existencia de usuario", description = "Verifica si existe un usuario con el codigo proporcionado.")
+	@GetMapping("/existe/{id}")
+	@Operation(summary = "Verificar existencia de usuario", description = "Verifica si existe un usuario con el id proporcionado.")
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
 		if (usuarioServ.existById(id)) {
 			return new ResponseEntity<>(true, HttpStatus.ACCEPTED);
@@ -145,26 +148,24 @@ public class UsuarioController {
 			nuevo.setPassword(password);
 			usuarioServ.updateById(id, nuevo);
 			return new ResponseEntity<>("Usuario actualizado exitosamente", HttpStatus.ACCEPTED);
-		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException e) {
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al actualizar usuario: " + e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al actualizar usuario: " + e.getMessage(), HttpStatus.CONFLICT);
+		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al actualizar usuario: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
-	@DeleteMapping("/eliminar/{codigo}")
-	@Operation(summary = "Eliminar usuario", description = "Elimina un usuario por su codigo.")
-	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Long id) {
+	@DeleteMapping("/eliminar/{id}")
+	@Operation(summary = "Eliminar usuario", description = "Elimina un usuario por su id.")
+	public ResponseEntity<String> eliminarPorId(@PathVariable Long id) {
 		try {
 			usuarioServ.deleteById(id);
 			return new ResponseEntity<>("Usuario eliminado exitosamente", HttpStatus.ACCEPTED);
 		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
-			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.NOT_FOUND);
 		}
 	}
 
-	/**
-	 * Traduce la excepcion del service al codigo HTTP correspondiente.
-	 * @param e Excepcion capturada.
-	 * @return Retorna el codigo HTTP.
-	 */
-	
 }

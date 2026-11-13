@@ -24,6 +24,13 @@ public interface MateriaRepository extends CrudRepository<Materia, Long> {
 	Optional<Materia> findByNombre(String nombre);
 
 	/**
+	 * Busca una materia por su codigo institucional (RF1).
+	 * @param codigo Codigo del curso.
+	 * @return Retorna la materia si existe.
+	 */
+	Optional<Materia> findByCodigo(long codigo);
+
+	/**
 	 * Busca las materias de un semestre.
 	 *
 	 * @param semestre El semestre a filtrar.

@@ -28,6 +28,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 
+/**
+ * Controlador REST para gestionar los cursos del plan de estudios (RF1, CU02).
+ * Rutas bajo /materia. Las consultas estan abiertas a cualquier usuario
+ * autenticado; crear, actualizar y eliminar requieren rol GESTOR. Las
+ * excepciones se traducen a codigos HTTP: 404 no existe, 409 duplicado y 400
+ * los demas errores de validacion.
+ */
 @RestController
 @RequestMapping("/materia")
 @CrossOrigin(origins = { "http://localhost:8080"})
@@ -40,26 +47,28 @@ public class MateriaController {
 	private MateriaService materiaService;
 
 	/**
-	 * Crea una nueva materia. Retorna 201 si fue exitoso, 406 si hubo error.
+	 * Crea una nueva materia. 201 si fue exitoso, 409 si el codigo o el nombre ya
+	 * existen y 400 si los datos son invalidos.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
-	@Operation(summary = "Crear materia", description = "Crea una nueva materia. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Crear materia", description = "Crea una nueva materia. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "201", description = "Materia creada exitosamente"),
-			@ApiResponse(responseCode = "406", description = "Error al crear materia (datos invalidos o duplicada)")
+			@ApiResponse(responseCode = "400", description = "Datos invalidos o sesiones fuera de rango"),
+			@ApiResponse(responseCode = "409", description = "Codigo o nombre duplicado")
 	})
-	public ResponseEntity<String> crear(@RequestParam String nombre,
+	public ResponseEntity<String> crear(@RequestParam long codigo, @RequestParam String nombre,
 			@RequestParam int semestre, @RequestParam int ncreditos,
 			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
 		try {
-			MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
 			materiaService.create(nueva);
 			return new ResponseEntity<>("Materia creada exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		} catch (RecursoDuplicadoException e) {
-			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.CONFLICT);
 		}
 	}
 
@@ -172,47 +181,50 @@ public class MateriaController {
 	}
 
 	/**
-	 * Actualiza una materia por id. 202 exitoso, 404 no encontrada, 400 error.
+	 * Actualiza una materia por id. 202 exitoso, 404 no encontrada, 409 codigo o
+	 * nombre duplicado y 400 datos invalidos.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su id. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su id. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "202", description = "Materia actualizada exitosamente"),
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada"),
-			@ApiResponse(responseCode = "400", description = "Error al actualizar")
+			@ApiResponse(responseCode = "409", description = "Codigo o nombre duplicado"),
+			@ApiResponse(responseCode = "400", description = "Datos invalidos o sesiones fuera de rango")
 	})
-	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
-			@RequestParam int semestre, @RequestParam int ncreditos,
+	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam long codigo,
+			@RequestParam String nombre, @RequestParam int semestre, @RequestParam int ncreditos,
 			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
-		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
-		if (!materiaService.existById(id)) {
-			return new ResponseEntity<>("Materia no encontrada", HttpStatus.NOT_FOUND);
-		}
-		int status = materiaService.updateById(id, nueva);
-		if (status == 0) {
+		try {
+			MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			materiaService.updateById(id, nueva);
 			return new ResponseEntity<>("Materia actualizada exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al actualizar materia", HttpStatus.BAD_REQUEST);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al actualizar materia: " + e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al actualizar materia: " + e.getMessage(), HttpStatus.CONFLICT);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>("Error al actualizar materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
 	/**
-	 * Elimina una materia por codigo. 202 si fue exitoso, 404 si no se encontro.
+	 * Elimina una materia por id. 202 si fue exitoso, 404 si no se encontro.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
-	@DeleteMapping("/eliminar/{codigo}")
-	@Operation(summary = "Eliminar materia", description = "Elimina una materia por su codigo. Requiere rol ADMINISTRADOR.")
+	@DeleteMapping("/eliminar/{id}")
+	@Operation(summary = "Eliminar materia", description = "Elimina una materia por su id. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 			@ApiResponse(responseCode = "202", description = "Materia eliminada exitosamente"),
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada")
 	})
-	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Long codigo) {
-		int status = materiaService.deleteById(codigo);
-		if (status == 0) {
+	public ResponseEntity<String> eliminarPorId(@PathVariable Long id) {
+		try {
+			materiaService.deleteById(id);
 			return new ResponseEntity<>("Materia eliminada exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al eliminar", HttpStatus.NOT_FOUND);
+		} catch (DatosInvalidosException | RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al eliminar: " + e.getMessage(), HttpStatus.NOT_FOUND);
 		}
 	}
 }

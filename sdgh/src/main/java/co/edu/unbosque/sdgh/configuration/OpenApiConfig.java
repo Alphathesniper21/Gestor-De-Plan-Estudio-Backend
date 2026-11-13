@@ -21,7 +21,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 				description =
 				"<h3>Guía de uso</h3>" +
 						"<ol>" +
-						"  <li>Regístrate en <code>/auth/register</code></li>" +
+						"  <li>Regístrate en <code>/auth/registro</code> (queda con rol CONSULTANTE)</li>" +
 						"  <li>Inicia sesión en <code>/auth/login</code> y copia el token JWT</li>" +
 						"  <li>Haz clic en <b>Authorize</b> (arriba a la derecha)</li>" +
 						"  <li>Escribe <code>Bearer &lt;tu_token&gt;</code> y confirma</li>" +
@@ -29,8 +29,8 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 						"</ol>" +
 						"<h3>Roles</h3>" +
 						"<ul>" +
-						"  <li><b>ADMINISTRADOR</b>: acceso total</li>" +
-						"  <li><b>USUARIO</b>: puede analizar código y ver sus propios análisis</li>" +
+						"  <li><b>GESTOR</b>: registra cursos, grupos y sesiones, configura los parámetros y publica el horario</li>" +
+						"  <li><b>CONSULTANTE</b>: consulta los cursos, los grupos y el horario por semestre</li>" +
 						"</ul>"
 				)
 		)

@@ -6,6 +6,11 @@ public class MateriaDTO {
 
 	private long id;
 
+	/**
+	 * Codigo institucional del curso (RF1).
+	 */
+	private long codigo;
+
 	private String nombre;
 
 	private int semestre;
@@ -19,8 +24,10 @@ public class MateriaDTO {
 	public MateriaDTO() {
 	}
 
-	public MateriaDTO(String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
+	public MateriaDTO(long codigo, String nombre, int semestre, int ncreditos, int horasDeLaMateria,
+			boolean correlativa) {
 		super();
+		this.codigo = codigo;
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
@@ -34,6 +41,14 @@ public class MateriaDTO {
 
 	public void setId(long id) {
 		this.id = id;
+	}
+
+	public long getCodigo() {
+		return codigo;
+	}
+
+	public void setCodigo(long codigo) {
+		this.codigo = codigo;
 	}
 
 	public String getNombre() {
@@ -87,13 +102,13 @@ public class MateriaDTO {
 
 	@Override
 	public String toString() {
-		return "MateriaDTO [id=" + id + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
+		return "MateriaDTO [id=" + id + ", codigo=" + codigo + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
 				+ ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
+		return Objects.hash(Long.valueOf(codigo), Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
 				Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
 	}
 
@@ -106,7 +121,7 @@ public class MateriaDTO {
 		if (getClass() != obj.getClass())
 			return false;
 		MateriaDTO other = (MateriaDTO) obj;
-		return correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
+		return codigo == other.codigo && correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
 				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
 	}
 

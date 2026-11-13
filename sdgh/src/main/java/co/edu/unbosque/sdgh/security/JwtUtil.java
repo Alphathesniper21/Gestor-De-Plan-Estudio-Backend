@@ -30,10 +30,10 @@ public class JwtUtil {
 	@Value("${jwt.secret}")
 	private String secretBase64;
 
-	@Value("${jwt.access-token-expiration-ms}")
+	@Value("${jwt.access-token-expiration-ms:3600000}")
 	private long accessTokenExpirationMs;
 
-	@Value("${jwt.refresh-token-expiration-ms}")
+	@Value("${jwt.refresh-token-expiration-ms:86400000}")
 	private long refreshTokenExpirationMs;
 
 	private SecretKey signingKey;

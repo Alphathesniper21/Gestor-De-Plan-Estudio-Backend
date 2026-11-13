@@ -24,24 +24,14 @@ import co.edu.unbosque.sdgh.repository.SesionRepository;
 
 /**
  * Servicio encargado de gestionar las operaciones CRUD de los grupos de un
- * curso (RF2). Valida el cupo planeado contra el limite institucional (40 mas
- * 10 % de tolerancia). Las reglas de horario (franja, pausa, cruce y limite de
+ * curso (RF2). Valida el cupo planeado contra el limite institucional (cupo
+ * base mas la tolerancia, por defecto 40 mas 10 %, leidos de los parametros). Las reglas de horario (franja, pausa, cruce y limite de
  * sesiones) corresponden a SesionService. Las validaciones se hacen al inicio
  * de cada metodo y lanzan excepciones personalizadas que son capturadas en el
  * controlador.
  */
 @Service
 public class GrupoService implements CRUDOperation<GrupoDTO> {
-
-	/**
-	 * Cupo base por grupo antes de aplicar tolerancia (RF2).
-	 */
-	private static final int CUPO_BASE_MAXIMO = 40;
-
-	/**
-	 * Porcentaje de tolerancia sobre el cupo (10 %) (RF2).
-	 */
-	private static final double TOLERANCIA_CUPO = 0.10;
 
 	/**
 	 * Repositorio encargado de las operaciones de persistencia de grupos.
@@ -60,6 +50,12 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	 */
 	@Autowired
 	private SesionRepository sesionRepo;
+
+	/**
+	 * Servicio de parametros: cupo base y tolerancia vigentes (RF9).
+	 */
+	@Autowired
+	private ParametroService parametroServ;
 
 	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
@@ -103,11 +99,11 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 			throw new DatosInvalidosException("El cupo planeado debe ser un numero positivo");
 		}
 
-		int limiteCupo = (int) Math.floor(CUPO_BASE_MAXIMO * (1.0 + TOLERANCIA_CUPO));
+		int limiteCupo = parametroServ.getCupoMaximo();
 
 		if (newData.getCupoPlaneado() > limiteCupo) {
 			throw new CupoExcedidoException("El cupo del grupo (" + newData.getCupoPlaneado()
-					+ ") supera el limite institucional permitido con tolerancia del 10 % (" + limiteCupo + ")");
+					+ ") supera el limite institucional permitido con la tolerancia (" + limiteCupo + ")");
 		}
 		if (!materiaRepo.existsById(newData.getMateriaId())) {
 			throw new RecursoNoEncontradoException("No existe una materia con el codigo " + newData.getMateriaId());
@@ -198,11 +194,11 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 			throw new DatosInvalidosException("El cupo planeado debe ser un numero positivo");
 		}
 
-		int limiteCupo = (int) Math.floor(CUPO_BASE_MAXIMO * (1.0 + TOLERANCIA_CUPO));
+		int limiteCupo = parametroServ.getCupoMaximo();
 
 		if (newData.getCupoPlaneado() > limiteCupo) {
 			throw new CupoExcedidoException("El cupo del grupo (" + newData.getCupoPlaneado()
-					+ ") supera el limite institucional permitido con tolerancia del 10 % (" + limiteCupo + ")");
+					+ ") supera el limite institucional permitido con la tolerancia (" + limiteCupo + ")");
 		}
 
 		Optional<Grupo> mismoNumero = grupoRepo.findByMateriaIdAndNumeroGrupo(temp.getMateriaId(),

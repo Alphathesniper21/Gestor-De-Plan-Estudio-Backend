@@ -37,7 +37,7 @@ public class UsuarioDTO {
 	private String password;
 
 	/**
-	 * Rol del usuario: GESTOR o CONSULTA.
+	 * Rol del usuario: GESTOR o CONSULTANTE.
 	 */
 	private RolUsuario rol;
 

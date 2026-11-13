@@ -1,5 +1,6 @@
 package co.edu.unbosque.sdgh.configuration;
 
+import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -10,9 +11,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import co.edu.unbosque.sdgh.entity.Parametro;
 import co.edu.unbosque.sdgh.entity.RolUsuario;
 import co.edu.unbosque.sdgh.entity.Usuario;
+import co.edu.unbosque.sdgh.repository.ParametroRepository;
 import co.edu.unbosque.sdgh.repository.UsuarioRepository;
+import co.edu.unbosque.sdgh.service.ParametroService;
 
 /**
  * Inicializador de datos predeterminados del aplicativo.
@@ -67,6 +71,26 @@ public class LoadDatabase {
 						passwordEncoder.encode(defaultPassword), RolUsuario.CONSULTANTE);
 				userRepo.save(consulta);
 				log.info("Precargando usuario de consulta");
+			}
+		};
+	}
+
+	/**
+	 * Precarga los parametros del sistema con sus valores por defecto (RF9). Solo
+	 * crea los que no existen, para no borrar lo que el gestor ya configuro.
+	 *
+	 * @param parametroRepo Repositorio de parametros.
+	 * @return Un CommandLineRunner que se ejecuta al iniciar la aplicacion.
+	 */
+	@Bean
+	CommandLineRunner initParametros(ParametroRepository parametroRepo) {
+
+		return args -> {
+			for (Map.Entry<String, String> par : ParametroService.VALORES_POR_DEFECTO.entrySet()) {
+				if (!parametroRepo.existsById(par.getKey())) {
+					parametroRepo.save(new Parametro(par.getKey(), par.getValue()));
+					log.info("Precargando parametro {}", par.getKey());
+				}
 			}
 		};
 	}

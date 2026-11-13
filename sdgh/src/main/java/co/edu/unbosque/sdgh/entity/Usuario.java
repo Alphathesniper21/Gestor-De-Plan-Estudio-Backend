@@ -21,7 +21,7 @@ import jakarta.persistence.Table;
  * Entidad que representa a un usuario del sistema. Implementa
  * {@link UserDetails} para la autenticacion con JWT. La contrasena se guarda
  * siempre con hash. El rol define los permisos: GESTOR arma el horario y
- * CONSULTA solo lo consulta.
+ * CONSULTANTE solo lo consulta.
  */
 @Entity
 @Table(name = "usuario")
@@ -54,7 +54,7 @@ public class Usuario implements UserDetails {
 	private String password;
 
 	/**
-	 * Rol del usuario: GESTOR o CONSULTA.
+	 * Rol del usuario: GESTOR o CONSULTANTE.
 	 */
 	@Enumerated(EnumType.STRING)
 	private RolUsuario rol;

@@ -16,7 +16,7 @@ public class SesionDTO {
 	/**
 	 * Identificador del grupo al que pertenece la sesion.
 	 */
-	private int grupoId;
+	private long grupoId;
 
 	/**
 	 * Dia de la semana, de 1 (lunes) a 6 (sabado).
@@ -36,7 +36,7 @@ public class SesionDTO {
 	public SesionDTO() {
 	}
 
-	public SesionDTO(int grupoId, int diaSemana, LocalTime horaInicio, LocalTime horaFin) {
+	public SesionDTO(long grupoId, int diaSemana, LocalTime horaInicio, LocalTime horaFin) {
 		super();
 		this.grupoId = grupoId;
 		this.diaSemana = diaSemana;
@@ -52,11 +52,11 @@ public class SesionDTO {
 		this.id = id;
 	}
 
-	public int getGrupoId() {
+	public long getGrupoId() {
 		return grupoId;
 	}
 
-	public void setGrupoId(int grupoId) {
+	public void setGrupoId(long grupoId) {
 		this.grupoId = grupoId;
 	}
 
@@ -92,7 +92,7 @@ public class SesionDTO {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Integer.valueOf(diaSemana), Integer.valueOf(grupoId), horaFin, horaInicio,
+		return Objects.hash(Integer.valueOf(diaSemana), Long.valueOf(grupoId), horaFin, horaInicio,
 				Long.valueOf(id));
 	}
 
