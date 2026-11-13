@@ -1,149 +1,210 @@
 package co.edu.unbosque.sdgh.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
 import co.edu.unbosque.sdgh.exception.CupoExcedidoException;
+import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.GrupoService;
 
-@ExtendWith(MockitoExtension.class)
+/**
+ * Pruebas unitarias para el controlador REST {@link GrupoController}.
+ * <p>
+ * Verifica los endpoints HTTP para la gestion de grupos: creacion con
+ * validacion de cupo maximo institucional (201 CREATED, 400 BAD REQUEST),
+ * consultas por id y generales, actualizacion y eliminacion.
+ * </p>
+ *
+ * @author Martin Peña
+ * @version 1.0
+ * @since 1.0
+ * @see GrupoController
+ * @see GrupoService
+ */
 class GrupoControllerTest {
 
-	private MockMvc mockMvc;
-
+	/** Mock del servicio de grupos. */
 	@Mock
 	private GrupoService grupoServ;
 
-	@InjectMocks
-	private GrupoController grupoController;
+	/** Instancia del controlador bajo prueba. */
+	private GrupoController controller;
 
-	private GrupoDTO grupoDTO;
+	/** DTO de referencia para pruebas. */
+	private GrupoDTO dto;
 
+	/**
+	 * Prepara los mocks e inyecta las dependencias en el controlador antes de cada
+	 * prueba.
+	 */
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(grupoController).build();
+		MockitoAnnotations.openMocks(this);
+		controller = new GrupoController();
 
-		grupoDTO = new GrupoDTO();
-		grupoDTO.setId(1L);
-		grupoDTO.setMateriaId(101L);
-		grupoDTO.setNumeroGrupo(1);
-		grupoDTO.setCupoPlaneado(40);
+		try {
+			var f1 = GrupoController.class.getDeclaredField("grupoServ");
+			f1.setAccessible(true);
+			f1.set(controller, grupoServ);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
+		dto = new GrupoDTO();
+		dto.setId(1L);
+		dto.setMateriaId(101L);
+		dto.setNumeroGrupo(1);
+		dto.setCupoPlaneado(40);
 	}
 
+	// ─── CREAR ────────────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que el endpoint de crear grupo retorna HTTP 201 CREATED cuando los
+	 * datos son validos.
+	 */
 	@Test
-	@DisplayName("POST /grupo/crear: Debe responder 201 CREATED al crear grupo exitosamente")
-	void debeCrearGrupoExitosamente() throws Exception {
+	void testCrear_Exitoso() {
 		when(grupoServ.create(any(GrupoDTO.class))).thenReturn(0);
 
-		mockMvc.perform(post("/grupo/crear")
-				.param("materiaId", "101")
-				.param("numeroGrupo", "1")
-				.param("cupoPlaneado", "40"))
-				.andExpect(status().isCreated())
-				.andExpect(content().string("Grupo creado exitosamente"));
+		ResponseEntity<String> response = controller.crear(101L, 1, 40);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.CREATED, response.getStatusCode());
+		assertEquals("Grupo creado exitosamente", response.getBody());
 	}
 
+	/**
+	 * Verifica que el endpoint de crear grupo retorna HTTP 400 BAD REQUEST cuando
+	 * el cupo supera el limite institucional permitido.
+	 */
 	@Test
-	@DisplayName("POST /grupo/crear: Debe responder 400 BAD_REQUEST si el cupo es excedido")
-	void debeResponder400AlExcederCupo() throws Exception {
+	void testCrear_RetornaBadRequestPorCupoExcedido() {
 		when(grupoServ.create(any(GrupoDTO.class)))
 				.thenThrow(new CupoExcedidoException("Cupo supera limite"));
 
-		mockMvc.perform(post("/grupo/crear")
-				.param("materiaId", "101")
-				.param("numeroGrupo", "1")
-				.param("cupoPlaneado", "50"))
-				.andExpect(status().isBadRequest());
+		ResponseEntity<String> response = controller.crear(101L, 1, 45);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertTrue(response.getBody().contains("Cupo supera limite"));
 	}
 
-	@Test
-	@DisplayName("GET /grupo/mostrartodo: Debe responder 202 ACCEPTED cuando hay grupos")
-	void debeRetornarGrupos() throws Exception {
-		when(grupoServ.getAll()).thenReturn(List.of(grupoDTO));
+	// ─── CONSULTAS ────────────────────────────────────────────────────────
 
-		mockMvc.perform(get("/grupo/mostrartodo"))
-				.andExpect(status().isAccepted());
+	/**
+	 * Verifica que {@code obtenerTodo} retorna HTTP 202 ACCEPTED con los grupos
+	 * cuando hay datos.
+	 */
+	@Test
+	void testObtenerTodo_Exitoso() {
+		when(grupoServ.getAll()).thenReturn(List.of(dto));
+
+		ResponseEntity<List<GrupoDTO>> response = controller.obtenerTodo();
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().size());
 	}
 
+	/**
+	 * Verifica que {@code obtenerTodo} retorna HTTP 204 NO CONTENT cuando no hay
+	 * grupos.
+	 */
 	@Test
-	@DisplayName("GET /grupo/mostrartodo: Debe responder 204 NO_CONTENT cuando no hay grupos")
-	void debeResponder204CuandoNoHayGrupos() throws Exception {
-		when(grupoServ.getAll()).thenReturn(new ArrayList<>());
+	void testObtenerTodo_RetornaNoContent() {
+		when(grupoServ.getAll()).thenReturn(Collections.emptyList());
 
-		mockMvc.perform(get("/grupo/mostrartodo"))
-				.andExpect(status().isNoContent());
+		ResponseEntity<List<GrupoDTO>> response = controller.obtenerTodo();
+
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
 	}
 
+	/**
+	 * Verifica que {@code obtenerPorId} retorna HTTP 202 ACCEPTED cuando el grupo
+	 * existe.
+	 */
 	@Test
-	@DisplayName("GET /grupo/mostrar/{id}: Debe responder 202 ACCEPTED cuando el grupo existe")
-	void debeObtenerGrupoPorId() throws Exception {
-		when(grupoServ.getById(1L)).thenReturn(grupoDTO);
+	void testObtenerPorId_Exitoso() {
+		when(grupoServ.getById(1L)).thenReturn(dto);
 
-		mockMvc.perform(get("/grupo/mostrar/1"))
-				.andExpect(status().isAccepted());
+		ResponseEntity<GrupoDTO> response = controller.obtenerPorId(1L);
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().getNumeroGrupo());
 	}
 
+	/**
+	 * Verifica que {@code obtenerPorId} retorna HTTP 404 NOT FOUND cuando el grupo
+	 * no existe.
+	 */
 	@Test
-	@DisplayName("PUT /grupo/actualizar: Debe responder 202 ACCEPTED al actualizar correctamente")
-	void debeActualizarGrupo() throws Exception {
+	void testObtenerPorId_RetornaNotFound() {
+		when(grupoServ.getById(999L)).thenThrow(new RecursoNoEncontradoException("No existe"));
+
+		ResponseEntity<GrupoDTO> response = controller.obtenerPorId(999L);
+
+		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+	}
+
+	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code actualizar} retorna HTTP 202 ACCEPTED cuando la
+	 * actualizacion es exitosa.
+	 */
+	@Test
+	void testActualizar_Exitoso() {
 		when(grupoServ.updateById(eq(1L), any(GrupoDTO.class))).thenReturn(0);
 
-		mockMvc.perform(put("/grupo/actualizar")
-				.param("id", "1")
-				.param("numeroGrupo", "2")
-				.param("cupoPlaneado", "35"))
-				.andExpect(status().isAccepted())
-				.andExpect(content().string("Grupo actualizado exitosamente"));
+		ResponseEntity<String> response = controller.actualizar(1L, 2, 35);
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertEquals("Grupo actualizado exitosamente", response.getBody());
 	}
 
+	/**
+	 * Verifica que {@code eliminarPorId} retorna HTTP 202 ACCEPTED cuando el grupo
+	 * es eliminado.
+	 */
 	@Test
-	@DisplayName("DELETE /grupo/eliminar/{id}: Debe responder 202 ACCEPTED al eliminar grupo")
-	void debeEliminarGrupo() throws Exception {
+	void testEliminarPorId_Exitoso() {
 		when(grupoServ.deleteById(1L)).thenReturn(0);
 
-		mockMvc.perform(delete("/grupo/eliminar/1"))
-				.andExpect(status().isAccepted())
-				.andExpect(content().string("Grupo eliminado exitosamente"));
+		ResponseEntity<String> response = controller.eliminarPorId(1L);
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertEquals("Grupo eliminado exitosamente", response.getBody());
 	}
 
+	/**
+	 * Verifica que {@code contar} y {@code existe} retornan respuestas exitosas
+	 * HTTP 202 ACCEPTED.
+	 */
 	@Test
-	@DisplayName("GET /grupo/contar: Debe responder 202 ACCEPTED con la cantidad de grupos")
-	void debeContarGrupos() throws Exception {
+	void testContarYExiste_Exitoso() {
 		when(grupoServ.count()).thenReturn(3L);
-
-		mockMvc.perform(get("/grupo/contar"))
-				.andExpect(status().isAccepted())
-				.andExpect(content().string("3"));
-	}
-
-	@Test
-	@DisplayName("GET /grupo/existe/{id}: Debe responder 202 si existe")
-	void debeVerificarExistencia() throws Exception {
 		when(grupoServ.existById(1L)).thenReturn(true);
 
-		mockMvc.perform(get("/grupo/existe/1"))
-				.andExpect(status().isAccepted())
-				.andExpect(content().string("true"));
+		ResponseEntity<Long> responseConteo = controller.contar();
+		assertEquals(HttpStatus.ACCEPTED, responseConteo.getStatusCode());
+		assertEquals(3L, responseConteo.getBody());
+
+		ResponseEntity<Boolean> responseExiste = controller.existe(1L);
+		assertEquals(HttpStatus.ACCEPTED, responseExiste.getStatusCode());
+		assertEquals(true, responseExiste.getBody());
 	}
 }

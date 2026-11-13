@@ -1,28 +1,15 @@
 package co.edu.unbosque.sdgh.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
 import org.modelmapper.ModelMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -34,161 +21,264 @@ import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.repository.UsuarioRepository;
 
-@ExtendWith(MockitoExtension.class)
+/**
+ * Pruebas unitarias para la clase {@link UsuarioService}.
+ * <p>
+ * Verifica la logica de negocio de los usuarios, incluyendo el registro con
+ * cifrado/hash de contrasenas, validaciones de formato de nombre, correo
+ * electronico y contrasena segura, politicas de privacidad para no exponer
+ * credenciales en consultas (RNF-4 y RNF-7), y operaciones CRUD.
+ * </p>
+ *
+ * @author Martin Peña
+ * @version 1.0
+ * @since 1.0
+ * @see UsuarioService
+ * @see CRUDOperation
+ */
 class UsuarioServiceTest {
 
+	/**
+	 * Mock del repositorio de usuarios.
+	 */
 	@Mock
 	private UsuarioRepository usuarioRepo;
 
+	/**
+	 * Mock del codificador de contrasenas.
+	 */
 	@Mock
 	private PasswordEncoder passwordEncoder;
 
-	@Mock
+	/**
+	 * Mapper para la conversion entre entidades y DTOs.
+	 */
 	private ModelMapper mapper;
 
-	@InjectMocks
-	private UsuarioService usuarioService;
+	/**
+	 * Instancia del servicio bajo prueba.
+	 */
+	private UsuarioService service;
 
-	private UsuarioDTO usuarioDTOValido;
-	private Usuario usuarioEntidad;
+	/**
+	 * Entidad de usuario de referencia.
+	 */
+	private Usuario usuario;
 
+	/**
+	 * DTO de usuario de referencia.
+	 */
+	private UsuarioDTO dto;
+
+	/**
+	 * Inicializa los mocks, inyecta las dependencias en el servicio y prepara los
+	 * objetos de prueba antes de cada caso.
+	 */
 	@BeforeEach
 	void setUp() {
-		usuarioDTOValido = new UsuarioDTO();
-		usuarioDTOValido.setId(1L);
-		usuarioDTOValido.setNombre("Martin Gonzalez");
-		usuarioDTOValido.setCorreo("martin@unbosque.edu.co");
-		usuarioDTOValido.setUsername("marting");
-		usuarioDTOValido.setPassword("ClaveSegura123");
-		usuarioDTOValido.setRol(RolUsuario.GESTOR);
+		MockitoAnnotations.openMocks(this);
+		mapper = new ModelMapper();
+		service = new UsuarioService();
 
-		usuarioEntidad = new Usuario();
-		usuarioEntidad.setId(1L);
-		usuarioEntidad.setNombre("Martin Gonzalez");
-		usuarioEntidad.setCorreo("martin@unbosque.edu.co");
-		usuarioEntidad.setUsername("marting");
-		usuarioEntidad.setPassword("hashedPassword");
-		usuarioEntidad.setRol(RolUsuario.GESTOR);
+		try {
+			var f1 = UsuarioService.class.getDeclaredField("usuarioRepo");
+			f1.setAccessible(true);
+			f1.set(service, usuarioRepo);
+
+			var f2 = UsuarioService.class.getDeclaredField("passwordEncoder");
+			f2.setAccessible(true);
+			f2.set(service, passwordEncoder);
+
+			var f3 = UsuarioService.class.getDeclaredField("mapper");
+			f3.setAccessible(true);
+			f3.set(service, mapper);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
+		usuario = new Usuario();
+		usuario.setId(1L);
+		usuario.setNombre("Martin Garcia");
+		usuario.setCorreo("martin@unbosque.edu.co");
+		usuario.setUsername("marting");
+		usuario.setPassword("hashedPassword123");
+		usuario.setRol(RolUsuario.GESTOR);
+
+		dto = new UsuarioDTO();
+		dto.setId(1L);
+		dto.setNombre("Martin Garcia");
+		dto.setCorreo("martin@unbosque.edu.co");
+		dto.setUsername("marting");
+		dto.setPassword("ClaveSegura123");
+		dto.setRol(RolUsuario.GESTOR);
 	}
 
+	// ─── CREATE ──────────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que la creacion de un usuario es exitosa y almacena la contrasena
+	 * codificada con hash en la base de datos.
+	 */
 	@Test
-	@DisplayName("create: Debe registrar un usuario exitosamente con contrasena encriptada")
-	void debeRegistrarUsuarioExitosamente() {
+	void testCreate_Exitoso() {
 		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(false);
 		when(usuarioRepo.existsByUsername("marting")).thenReturn(false);
-		when(passwordEncoder.encode("ClaveSegura123")).thenReturn("hashedPassword");
-		when(mapper.map(usuarioDTOValido, Usuario.class)).thenReturn(usuarioEntidad);
+		when(passwordEncoder.encode("ClaveSegura123")).thenReturn("hashedPassword123");
+		when(usuarioRepo.save(any(Usuario.class))).thenReturn(usuario);
 
-		int resultado = usuarioService.create(usuarioDTOValido);
+		int resultado = service.create(dto);
 
 		assertEquals(0, resultado);
-		verify(usuarioRepo, times(1)).save(usuarioEntidad);
+		verify(usuarioRepo, times(1)).save(any(Usuario.class));
+		verify(passwordEncoder, times(1)).encode("ClaveSegura123");
 	}
 
+	/**
+	 * Verifica que se lanza {@link DatosInvalidosException} cuando los datos del
+	 * usuario o el nombre son nulos o contienen caracteres no permitidos.
+	 */
 	@Test
-	@DisplayName("create: Debe rechazar datos nulos o nombres vacios o invalidos")
-	void debeRechazarDatosONombresInvalidos() {
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(null));
+	void testCreate_LanzaExcepcionNombreInvalido() {
+		assertThrows(DatosInvalidosException.class, () -> service.create(null));
 
-		usuarioDTOValido.setNombre("   ");
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
+		dto.setNombre("   ");
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		usuarioDTOValido.setNombre("Martin123"); // Caracteres no permitidos en nombre
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
-	}
-
-	@Test
-	@DisplayName("create: Debe rechazar formato de correo invalido")
-	void debeRechazarCorreoInvalido() {
-		usuarioDTOValido.setCorreo("correo-sin-arroba");
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
-	}
-
-	@Test
-	@DisplayName("create: Debe rechazar contrasenas debiles (sin mayuscula, sin minuscula o sin numero)")
-	void debeRechazarContrasenasDebiles() {
-		usuarioDTOValido.setPassword("corta");
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
-
-		usuarioDTOValido.setPassword("solominusculas123");
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
-
-		usuarioDTOValido.setPassword("SOLOMAYUSCULAS123");
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
-
-		usuarioDTOValido.setPassword("SinNumerosValidos");
-		assertThrows(DatosInvalidosException.class, () -> usuarioService.create(usuarioDTOValido));
-	}
-
-	@Test
-	@DisplayName("create: Debe rechazar correo o username duplicado")
-	void debeRechazarUsuarioDuplicado() {
-		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(true);
-		assertThrows(RecursoDuplicadoException.class, () -> usuarioService.create(usuarioDTOValido));
-
-		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(false);
-		when(usuarioRepo.existsByUsername("marting")).thenReturn(true);
-		assertThrows(RecursoDuplicadoException.class, () -> usuarioService.create(usuarioDTOValido));
+		dto.setNombre("Martin123"); // Contiene numeros en el nombre
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
 		verify(usuarioRepo, never()).save(any());
 	}
 
+	/**
+	 * Verifica que se lanza {@link DatosInvalidosException} cuando el correo no
+	 * cumple con el formato regular esperado.
+	 */
 	@Test
-	@DisplayName("getAll: Debe retornar usuarios sin exponer sus contrasenas")
-	void debeRetornarUsuariosSinContrasena() {
-		when(usuarioRepo.findAll()).thenReturn(List.of(usuarioEntidad));
-		when(mapper.map(usuarioEntidad, UsuarioDTO.class)).thenReturn(usuarioDTOValido);
+	void testCreate_LanzaExcepcionCorreoInvalido() {
+		dto.setCorreo("correo-sin-formato");
 
-		List<UsuarioDTO> resultado = usuarioService.getAll();
+		DatosInvalidosException ex = assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		assertNotNull(resultado);
-		assertEquals(1, resultado.size());
-		assertNull(resultado.get(0).getPassword(), "La contrasena no debe retornarse");
+		assertTrue(ex.getMessage().contains("El correo no tiene un formato valido"));
+		verify(usuarioRepo, never()).save(any());
 	}
 
+	/**
+	 * Verifica que se lanza {@link DatosInvalidosException} cuando la contrasena es
+	 * menor a 8 caracteres o no cumple con la combinacion de mayusculas, minusculas
+	 * y numeros.
+	 */
 	@Test
-	@DisplayName("deleteById: Debe eliminar usuario existente")
-	void debeEliminarUsuarioExitosamente() {
-		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuarioEntidad));
+	void testCreate_LanzaExcepcionContrasenaDebil() {
+		dto.setPassword("Ab1"); // Corta (< 8)
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		int resultado = usuarioService.deleteById(1L);
+		dto.setPassword("solominuscula123"); // Sin mayuscula
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		assertEquals(0, resultado);
-		verify(usuarioRepo, times(1)).delete(usuarioEntidad);
+		dto.setPassword("SOLOMAYUSCULA123"); // Sin minuscula
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
+
+		dto.setPassword("SinNumeroValido"); // Sin numero
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 	}
 
+	/**
+	 * Verifica que se lanza {@link RecursoDuplicadoException} cuando el correo o el
+	 * nombre de usuario ya existen en el repositorio.
+	 */
 	@Test
-	@DisplayName("deleteById: Debe lanzar excepcion cuando el usuario no existe")
-	void debeLanzarExcepcionAlEliminarInexistente() {
-		when(usuarioRepo.findById(999L)).thenReturn(Optional.empty());
+	void testCreate_LanzaExcepcionUsuarioDuplicado() {
+		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(true);
+		assertThrows(RecursoDuplicadoException.class, () -> service.create(dto));
 
-		assertThrows(RecursoNoEncontradoException.class, () -> usuarioService.deleteById(999L));
+		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(false);
+		when(usuarioRepo.existsByUsername("marting")).thenReturn(true);
+		assertThrows(RecursoDuplicadoException.class, () -> service.create(dto));
+
+		verify(usuarioRepo, never()).save(any());
 	}
 
+	// ─── GET ALL ──────────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code getAll} retorna la lista de usuarios y garantiza que
+	 * ningun DTO exponga la contrasena del usuario.
+	 */
 	@Test
-	@DisplayName("updateById: Debe actualizar datos de usuario")
-	void debeActualizarUsuarioExitosamente() {
-		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuarioEntidad));
-		when(usuarioRepo.findByCorreo("martin@unbosque.edu.co")).thenReturn(Optional.of(usuarioEntidad));
+	void testGetAll_ExitosoSinContrasena() {
+		when(usuarioRepo.findAll()).thenReturn(List.of(usuario));
+
+		List<UsuarioDTO> lista = service.getAll();
+
+		assertNotNull(lista);
+		assertEquals(1, lista.size());
+		assertNull(lista.get(0).getPassword(), "La contrasena nunca debe exponerse en los DTOs");
+	}
+
+	// ─── UPDATE BY ID ─────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code updateById} actualiza correctamente el nombre y correo
+	 * del usuario existente.
+	 */
+	@Test
+	void testUpdateById_Exitoso() {
+		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
+		when(usuarioRepo.findByCorreo("martin@unbosque.edu.co")).thenReturn(Optional.of(usuario));
+		when(usuarioRepo.save(any(Usuario.class))).thenReturn(usuario);
 
 		UsuarioDTO actualizacion = new UsuarioDTO();
-		actualizacion.setNombre("Martin Modificado");
+		actualizacion.setNombre("Martin Actualizado");
 		actualizacion.setCorreo("martin@unbosque.edu.co");
 
-		int resultado = usuarioService.updateById(1L, actualizacion);
+		int resultado = service.updateById(1L, actualizacion);
 
 		assertEquals(0, resultado);
-		verify(usuarioRepo, times(1)).save(usuarioEntidad);
+		verify(usuarioRepo, times(1)).save(usuario);
 	}
 
+	// ─── DELETE BY ID ─────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code deleteById} elimina correctamente al usuario de la base
+	 * de datos.
+	 */
 	@Test
-	@DisplayName("count y existById: Deben verificar operaciones basicas")
-	void debeContarYVerificarExistencia() {
-		when(usuarioRepo.count()).thenReturn(2L);
-		assertEquals(2L, usuarioService.count());
+	void testDeleteById_Exitoso() {
+		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
+
+		int resultado = service.deleteById(1L);
+
+		assertEquals(0, resultado);
+		verify(usuarioRepo, times(1)).delete(usuario);
+	}
+
+	/**
+	 * Verifica que {@code deleteById} lanza {@link RecursoNoEncontradoException}
+	 * cuando el usuario no existe.
+	 */
+	@Test
+	void testDeleteById_LanzaExcepcionNoEncontrado() {
+		when(usuarioRepo.findById(999L)).thenReturn(Optional.empty());
+
+		assertThrows(RecursoNoEncontradoException.class, () -> service.deleteById(999L));
+	}
+
+	// ─── OPERACIONES DE CONTEO Y EXISTENCIA ────────────────────────────────
+
+	/**
+	 * Verifica que {@code count} y {@code existById} devuelven los resultados
+	 * esperados.
+	 */
+	@Test
+	void testCountYExistById_Exitoso() {
+		when(usuarioRepo.count()).thenReturn(3L);
+		assertEquals(3L, service.count());
 
 		when(usuarioRepo.existsById(1L)).thenReturn(true);
-		assertTrue(usuarioService.existById(1L));
-		assertFalse(usuarioService.existById(null));
+		assertTrue(service.existById(1L));
+		assertFalse(service.existById(null));
 	}
 }

@@ -1,24 +1,19 @@
 package co.edu.unbosque.sdgh.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
 import co.edu.unbosque.sdgh.entity.RolUsuario;
@@ -28,31 +23,73 @@ import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.security.JwtUtil;
 import co.edu.unbosque.sdgh.service.UsuarioService;
 
-@ExtendWith(MockitoExtension.class)
+/**
+ * Pruebas unitarias para el controlador REST {@link AuthController}.
+ * <p>
+ * Verifica los endpoints de autenticacion del sistema: inicio de sesion (login)
+ * con emision de token JWT y rol (200 OK) o rechazo de credenciales invalidas
+ * (401 UNAUTHORIZED), y registro de nuevos usuarios (201 CREATED, 409 CONFLICT,
+ * 400 BAD REQUEST).
+ * </p>
+ *
+ * @author Martin Peña
+ * @version 1.0
+ * @since 1.0
+ * @see AuthController
+ * @see JwtUtil
+ * @see UsuarioService
+ */
 class AuthControllerTest {
 
-	private MockMvc mockMvc;
-
+	/** Mock del AuthenticationManager de Spring Security. */
 	@Mock
 	private AuthenticationManager authenticationManager;
 
+	/** Mock de la utilidad de tokens JWT. */
 	@Mock
 	private JwtUtil jwtUtil;
 
+	/** Mock del servicio de usuarios. */
 	@Mock
 	private UsuarioService usuarioServ;
 
-	@InjectMocks
-	private AuthController authController;
+	/** Instancia del controlador bajo prueba. */
+	private AuthController controller;
 
+	/**
+	 * Prepara los mocks e inyecta las dependencias en el controlador antes de cada
+	 * prueba.
+	 */
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(authController).build();
+		MockitoAnnotations.openMocks(this);
+		controller = new AuthController();
+
+		try {
+			var f1 = AuthController.class.getDeclaredField("authenticationManager");
+			f1.setAccessible(true);
+			f1.set(controller, authenticationManager);
+
+			var f2 = AuthController.class.getDeclaredField("jwtUtil");
+			f2.setAccessible(true);
+			f2.set(controller, jwtUtil);
+
+			var f3 = AuthController.class.getDeclaredField("usuarioServ");
+			f3.setAccessible(true);
+			f3.set(controller, usuarioServ);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 
+	// ─── LOGIN ────────────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code login} retorna HTTP 200 OK y la estructura de respuesta
+	 * con el token JWT cuando las credenciales son correctas.
+	 */
 	@Test
-	@DisplayName("POST /auth/login: Debe retornar 200 OK con JWT al autenticar exitosamente")
-	void debeIniciarSesionExitosamente() throws Exception {
+	void testLogin_Exitoso() {
 		Usuario usuario = new Usuario();
 		usuario.setUsername("admin");
 		usuario.setRol(RolUsuario.GESTOR);
@@ -63,64 +100,77 @@ class AuthControllerTest {
 				.thenReturn(auth);
 		when(jwtUtil.generateAccessToken(usuario)).thenReturn("mocked.jwt.token");
 
-		mockMvc.perform(post("/auth/login")
-				.param("nombreUsuario", "admin")
-				.param("contrasenia", "pass123"))
-				.andExpect(status().isOk());
+		ResponseEntity<Object> response = controller.login("admin", "pass123");
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.OK, response.getStatusCode());
+		assertNotNull(response.getBody());
 	}
 
+	/**
+	 * Verifica que {@code login} retorna HTTP 401 UNAUTHORIZED cuando las
+	 * credenciales son incorrectas.
+	 */
 	@Test
-	@DisplayName("POST /auth/login: Debe retornar 401 UNAUTHORIZED con credenciales incorrectas")
-	void debeRechazarCredencialesIncorrectas() throws Exception {
+	void testLogin_RechazaCredencialesIncorrectas() {
 		when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
 				.thenThrow(new BadCredentialsException("Bad credentials"));
 
-		mockMvc.perform(post("/auth/login")
-				.param("nombreUsuario", "admin")
-				.param("contrasenia", "claveEquivocada"))
-				.andExpect(status().isUnauthorized())
-				.andExpect(content().string("Credenciales invalidas"));
+		ResponseEntity<Object> response = controller.login("admin", "claveIncorrecta");
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+		assertEquals("Credenciales invalidas", response.getBody());
 	}
 
+	// ─── REGISTRO ─────────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code registro} retorna HTTP 201 CREATED al registrar
+	 * exitosamente un nuevo usuario.
+	 */
 	@Test
-	@DisplayName("POST /auth/registro: Debe retornar 201 CREATED al registrar usuario exitosamente")
-	void debeRegistrarUsuarioExitosamente() throws Exception {
+	void testRegistro_Exitoso() {
 		when(usuarioServ.create(any(UsuarioDTO.class))).thenReturn(0);
 
-		mockMvc.perform(post("/auth/registro")
-				.param("nombre", "Laura Gomez")
-				.param("nombreUsuario", "laurag")
-				.param("correoElectronico", "laura@unbosque.edu.co")
-				.param("contrasenia", "ClaveSegura123"))
-				.andExpect(status().isCreated())
-				.andExpect(content().string("Usuario registrado exitosamente"));
+		ResponseEntity<Object> response = controller.registro("Laura Gomez", "laurag", "laura@unbosque.edu.co",
+				"ClaveSegura123");
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.CREATED, response.getStatusCode());
+		assertEquals("Usuario registrado exitosamente", response.getBody());
 	}
 
+	/**
+	 * Verifica que {@code registro} retorna HTTP 409 CONFLICT cuando el usuario o
+	 * correo ya existen.
+	 */
 	@Test
-	@DisplayName("POST /auth/registro: Debe retornar 409 CONFLICT si el usuario ya existe")
-	void debeRetornar409CuandoUsuarioExiste() throws Exception {
+	void testRegistro_RetornaConflictPorDuplicado() {
 		when(usuarioServ.create(any(UsuarioDTO.class)))
-				.thenThrow(new RecursoDuplicadoException("Correo ya existe"));
+				.thenThrow(new RecursoDuplicadoException("El correo ya existe"));
 
-		mockMvc.perform(post("/auth/registro")
-				.param("nombre", "Laura Gomez")
-				.param("nombreUsuario", "laurag")
-				.param("correoElectronico", "laura@unbosque.edu.co")
-				.param("contrasenia", "ClaveSegura123"))
-				.andExpect(status().isConflict());
+		ResponseEntity<Object> response = controller.registro("Laura Gomez", "laurag", "laura@unbosque.edu.co",
+				"ClaveSegura123");
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
+		assertEquals("El correo ya existe", response.getBody());
 	}
 
+	/**
+	 * Verifica que {@code registro} retorna HTTP 400 BAD REQUEST cuando los datos
+	 * ingresados son invalidos.
+	 */
 	@Test
-	@DisplayName("POST /auth/registro: Debe retornar 400 BAD_REQUEST si los datos son invalidos")
-	void debeRetornar400ConDatosInvalidos() throws Exception {
+	void testRegistro_RetornaBadRequestPorDatosInvalidos() {
 		when(usuarioServ.create(any(UsuarioDTO.class)))
 				.thenThrow(new DatosInvalidosException("Contrasena debil"));
 
-		mockMvc.perform(post("/auth/registro")
-				.param("nombre", "Laura")
-				.param("nombreUsuario", "laurag")
-				.param("correoElectronico", "correoInvalido")
-				.param("contrasenia", "123"))
-				.andExpect(status().isBadRequest());
+		ResponseEntity<Object> response = controller.registro("Laura", "laurag", "correoInvalido", "123");
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertEquals("Contrasena debil", response.getBody());
 	}
 }

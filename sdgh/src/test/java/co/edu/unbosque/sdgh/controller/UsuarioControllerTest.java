@@ -1,147 +1,212 @@
 package co.edu.unbosque.sdgh.controller;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.mockito.MockitoAnnotations;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
 import co.edu.unbosque.sdgh.entity.RolUsuario;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.UsuarioService;
 
-@ExtendWith(MockitoExtension.class)
+/**
+ * Pruebas unitarias para el controlador REST {@link UsuarioController}.
+ * <p>
+ * Verifica los endpoints HTTP para la administracion de usuarios: creacion con
+ * HTTP 201 CREATED o 400 BAD REQUEST, consultas por codigo, correo y username,
+ * actualizacion, conteo y eliminacion.
+ * </p>
+ *
+ * @author Martin Peña
+ * @version 1.0
+ * @since 1.0
+ * @see UsuarioController
+ * @see UsuarioService
+ */
 class UsuarioControllerTest {
 
-	private MockMvc mockMvc;
-
+	/** Mock del servicio de usuarios. */
 	@Mock
 	private UsuarioService usuarioServ;
 
-	@InjectMocks
-	private UsuarioController usuarioController;
+	/** Instancia del controlador bajo prueba. */
+	private UsuarioController controller;
 
-	private UsuarioDTO usuarioDTO;
+	/** DTO de referencia para pruebas. */
+	private UsuarioDTO dto;
 
+	/**
+	 * Prepara los mocks e inyecta las dependencias en el controlador antes de cada
+	 * prueba.
+	 */
 	@BeforeEach
 	void setUp() {
-		mockMvc = MockMvcBuilders.standaloneSetup(usuarioController).build();
+		MockitoAnnotations.openMocks(this);
+		controller = new UsuarioController();
 
-		usuarioDTO = new UsuarioDTO();
-		usuarioDTO.setId(1L);
-		usuarioDTO.setNombre("Martin Gonzalez");
-		usuarioDTO.setCorreo("martin@unbosque.edu.co");
-		usuarioDTO.setUsername("marting");
-		usuarioDTO.setRol(RolUsuario.GESTOR);
+		try {
+			var f1 = UsuarioController.class.getDeclaredField("usuarioServ");
+			f1.setAccessible(true);
+			f1.set(controller, usuarioServ);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
+
+		dto = new UsuarioDTO();
+		dto.setId(1L);
+		dto.setNombre("Martin Garcia");
+		dto.setCorreo("martin@unbosque.edu.co");
+		dto.setUsername("marting");
+		dto.setRol(RolUsuario.GESTOR);
 	}
 
+	// ─── CREAR ────────────────────────────────────────────────────────────
+
+	/**
+	 * Verifica que el endpoint de crear usuario retorna HTTP 201 CREATED cuando
+	 * los datos son validos.
+	 */
 	@Test
-	@DisplayName("POST /usuario/crear: Debe responder 201 CREATED al crear usuario")
-	void debeCrearUsuarioExitosamente() throws Exception {
+	void testCrear_Exitoso() {
 		when(usuarioServ.create(any(UsuarioDTO.class))).thenReturn(0);
 
-		mockMvc.perform(post("/usuario/crear")
-				.param("nombre", "Martin Gonzalez")
-				.param("correo", "martin@unbosque.edu.co")
-				.param("username", "marting")
-				.param("password", "ClaveSegura123")
-				.param("rol", "GESTOR"))
-				.andExpect(status().isCreated())
-				.andExpect(content().string("Usuario creado exitosamente"));
+		ResponseEntity<String> response = controller.crear("Martin Garcia", "martin@unbosque.edu.co", "marting",
+				"ClaveSegura123", RolUsuario.GESTOR);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.CREATED, response.getStatusCode());
+		assertEquals("Usuario creado exitosamente", response.getBody());
 	}
 
+	/**
+	 * Verifica que el endpoint de crear usuario retorna HTTP 400 BAD REQUEST cuando
+	 * se envian datos invalidos.
+	 */
 	@Test
-	@DisplayName("POST /usuario/crear: Debe responder 400 BAD_REQUEST ante datos invalidos")
-	void debeResponder400AlCrearConDatosInvalidos() throws Exception {
+	void testCrear_RetornaBadRequestPorDatosInvalidos() {
 		when(usuarioServ.create(any(UsuarioDTO.class)))
-				.thenThrow(new DatosInvalidosException("Formato invalido"));
+				.thenThrow(new DatosInvalidosException("Formato de correo invalido"));
 
-		mockMvc.perform(post("/usuario/crear")
-				.param("nombre", "Martin")
-				.param("correo", "correoInvalido")
-				.param("username", "mg")
-				.param("password", "123")
-				.param("rol", "GESTOR"))
-				.andExpect(status().isBadRequest());
+		ResponseEntity<String> response = controller.crear("Martin", "correoInvalido", "marting", "123",
+				RolUsuario.GESTOR);
+
+		assertNotNull(response);
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertTrue(response.getBody().contains("Formato de correo invalido"));
 	}
 
-	@Test
-	@DisplayName("GET /usuario/mostrartodo: Debe responder 202 ACCEPTED cuando hay usuarios")
-	void debeRetornarUsuarios() throws Exception {
-		when(usuarioServ.getAll()).thenReturn(List.of(usuarioDTO));
+	// ─── CONSULTAS ────────────────────────────────────────────────────────
 
-		mockMvc.perform(get("/usuario/mostrartodo"))
-				.andExpect(status().isAccepted());
+	/**
+	 * Verifica que {@code obtenerTodo} retorna HTTP 202 ACCEPTED con los usuarios
+	 * cuando hay registros.
+	 */
+	@Test
+	void testObtenerTodo_Exitoso() {
+		when(usuarioServ.getAll()).thenReturn(List.of(dto));
+
+		ResponseEntity<List<UsuarioDTO>> response = controller.obtenerTodo();
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals(1, response.getBody().size());
 	}
 
+	/**
+	 * Verifica que {@code obtenerTodo} retorna HTTP 204 NO CONTENT cuando la lista
+	 * esta vacia.
+	 */
 	@Test
-	@DisplayName("GET /usuario/mostrartodo: Debe responder 204 NO_CONTENT cuando no hay usuarios")
-	void debeRetornar204CuandoNoHayUsuarios() throws Exception {
-		when(usuarioServ.getAll()).thenReturn(new ArrayList<>());
+	void testObtenerTodo_RetornaNoContent() {
+		when(usuarioServ.getAll()).thenReturn(Collections.emptyList());
 
-		mockMvc.perform(get("/usuario/mostrartodo"))
-				.andExpect(status().isNoContent());
+		ResponseEntity<List<UsuarioDTO>> response = controller.obtenerTodo();
+
+		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
 	}
 
+	/**
+	 * Verifica que {@code obtenerPorCorreo} retorna HTTP 202 ACCEPTED cuando el
+	 * usuario existe.
+	 */
 	@Test
-	@DisplayName("GET /usuario/mostrarporcorreo: Debe responder 202 ACCEPTED al encontrar por correo")
-	void debeBuscarPorCorreo() throws Exception {
-		when(usuarioServ.getByCorreo("martin@unbosque.edu.co")).thenReturn(usuarioDTO);
+	void testObtenerPorCorreo_Exitoso() {
+		when(usuarioServ.getByCorreo("martin@unbosque.edu.co")).thenReturn(dto);
 
-		mockMvc.perform(get("/usuario/mostrarporcorreo")
-				.param("correo", "martin@unbosque.edu.co"))
-				.andExpect(status().isAccepted());
+		ResponseEntity<UsuarioDTO> response = controller.obtenerPorCorreo("martin@unbosque.edu.co");
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals("Martin Garcia", response.getBody().getNombre());
 	}
 
+	/**
+	 * Verifica que {@code obtenerPorUsername} retorna HTTP 202 ACCEPTED cuando el
+	 * usuario existe.
+	 */
 	@Test
-	@DisplayName("GET /usuario/mostrarporusername: Debe responder 202 ACCEPTED al encontrar por username")
-	void debeBuscarPorUsername() throws Exception {
-		when(usuarioServ.getByUsername("marting")).thenReturn(usuarioDTO);
+	void testObtenerPorUsername_Exitoso() {
+		when(usuarioServ.getByUsername("marting")).thenReturn(dto);
 
-		mockMvc.perform(get("/usuario/mostrarporusername")
-				.param("username", "marting"))
-				.andExpect(status().isAccepted());
+		ResponseEntity<UsuarioDTO> response = controller.obtenerPorUsername("marting");
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals("marting", response.getBody().getUsername());
 	}
 
+	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code actualizar} retorna HTTP 202 ACCEPTED cuando la
+	 * actualizacion es exitosa.
+	 */
 	@Test
-	@DisplayName("PUT /usuario/actualizar: Debe responder 202 ACCEPTED al actualizar correctamente")
-	void debeActualizarUsuario() throws Exception {
+	void testActualizar_Exitoso() {
 		when(usuarioServ.updateById(eq(1L), any(UsuarioDTO.class))).thenReturn(0);
 
-		mockMvc.perform(put("/usuario/actualizar")
-				.param("id", "1")
-				.param("nombre", "Martin Modificado")
-				.param("correo", "martin@unbosque.edu.co")
-				.param("rol", "GESTOR"))
-				.andExpect(status().isAccepted())
-				.andExpect(content().string("Usuario actualizado exitosamente"));
+		ResponseEntity<String> response = controller.actualizar(1L, "Martin Modificado", "martin@unbosque.edu.co",
+				RolUsuario.GESTOR, null);
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertEquals("Usuario actualizado exitosamente", response.getBody());
 	}
 
+	/**
+	 * Verifica que {@code eliminarPorCodigo} retorna HTTP 202 ACCEPTED cuando el
+	 * usuario es eliminado.
+	 */
 	@Test
-	@DisplayName("GET /usuario/contar: Debe responder 202 ACCEPTED con el conteo de usuarios")
-	void debeContarUsuarios() throws Exception {
+	void testEliminarPorCodigo_Exitoso() {
+		when(usuarioServ.deleteById(1L)).thenReturn(0);
+
+		ResponseEntity<String> response = controller.eliminarPorCodigo(1L);
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertEquals("Usuario eliminado exitosamente", response.getBody());
+	}
+
+	/**
+	 * Verifica que {@code contar} retorna HTTP 202 ACCEPTED con la cantidad total
+	 * de usuarios.
+	 */
+	@Test
+	void testContar_Exitoso() {
 		when(usuarioServ.count()).thenReturn(5L);
 
-		mockMvc.perform(get("/usuario/contar"))
-				.andExpect(status().isAccepted())
-				.andExpect(content().string("5"));
+		ResponseEntity<Long> response = controller.contar();
+
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertEquals(5L, response.getBody());
 	}
 }
