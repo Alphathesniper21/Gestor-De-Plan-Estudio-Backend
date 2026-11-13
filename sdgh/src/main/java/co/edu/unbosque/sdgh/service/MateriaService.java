@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
+import co.edu.unbosque.sdgh.entity.ClaveParametro;
 import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
@@ -38,10 +39,25 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	private static final int SEMESTRE_MAXIMO = 9;
 
 	/**
+	 * Numero de sesiones minimas.
+	 */
+	private static final int SESIONES_MINIMAS = 1;
+	
+	
+	/**
+	 * Horas por sesion.
+	 */
+	private static final int HORAS_POR_SESION = 2;
+	
+	
+	/**
 	 * Repositorio encargado de las operaciones de persistencia de materias.
 	 */
 	@Autowired
 	private MateriaRepository materiaRepo;
+	
+	@Autowired
+	private ParametroService parametroServ;
 
 	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
@@ -83,9 +99,19 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getHorasDeLaMateria() <= 0) {
 			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
+		if (newData.getHorasDeLaMateria() % HORAS_POR_SESION != 0) {
+			throw new DatosInvalidosException(
+					"Las horas deben ser multiplo de " + HORAS_POR_SESION + " (sesiones de 2 horas)");
+		}
+
+		int sesionesMaximas = parametroServ.getEntero(ClaveParametro.SESIONES_MAXIMAS);
+		int sesiones = newData.getHorasDeLaMateria() / HORAS_POR_SESION;
+		if (sesiones < SESIONES_MINIMAS || sesiones > sesionesMaximas) {
+			throw new DatosInvalidosException("El curso tendria " + sesiones
+					+ " sesiones semanales y debe tener entre " + SESIONES_MINIMAS + " y " + sesionesMaximas);
+		}
 
 		String nombre = newData.getNombre().trim();
-
 		if (materiaRepo.findByNombre(nombre).isPresent()) {
 			throw new RecursoDuplicadoException("Ya existe una materia con el nombre " + nombre);
 		}
@@ -211,6 +237,17 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getHorasDeLaMateria() <= 0) {
 			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
+		if (newData.getHorasDeLaMateria() % HORAS_POR_SESION != 0) {
+			throw new DatosInvalidosException(
+					"Las horas deben ser multiplo de " + HORAS_POR_SESION + " (sesiones de 2 horas)");
+		}
+
+		int sesionesMaximas = parametroServ.getEntero(ClaveParametro.SESIONES_MAXIMAS);
+		int sesiones = newData.getHorasDeLaMateria() / HORAS_POR_SESION;
+		if (sesiones < SESIONES_MINIMAS || sesiones > sesionesMaximas) {
+			throw new DatosInvalidosException("El curso tendria " + sesiones
+					+ " sesiones semanales y debe tener entre " + SESIONES_MINIMAS + " y " + sesionesMaximas);
+		}
 
 		String nombre = newData.getNombre().trim();
 		Optional<Materia> porNombre = materiaRepo.findByNombre(nombre);
@@ -225,6 +262,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		temp.setHorasDeLaMateria(newData.getHorasDeLaMateria());
 		temp.setCorrelativa(newData.isCorrelativa());
 		materiaRepo.save(temp);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
