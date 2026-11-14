@@ -16,13 +16,9 @@ public class Materia {
 
 	@Id @GeneratedValue(strategy = GenerationType.IDENTITY)
 	private long id;
-
-	/**
-	 * Codigo institucional del curso (por ejemplo, 15318). Es unico (RF1).
-	 */
+	
 	@Column(unique = true, nullable = false)
 	private long codigo;
-
 	private String nombre;
 	private int semestre;
 	private int ncreditos;
@@ -32,9 +28,8 @@ public class Materia {
 	public Materia() {
 		super();
 	}
-	
-	public Materia(long codigo, String nombre, int semestre, int ncreditos, int horasDeLaMateria,
-			boolean correlativa) {
+
+	public Materia(long codigo, String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
 		super();
 		this.codigo = codigo;
 		this.nombre = nombre;
@@ -99,27 +94,18 @@ public class Materia {
 	public void setCorrelativa(boolean correlativa) {
 		this.correlativa = correlativa;
 	}
-	
-	/**
-	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las horas
-	 * de la materia, porque cada sesion dura 2 horas (RF3, RF7).
-	 * @return Retorna el numero de sesiones semanales.
-	 */
-	@Transient
-	public int getSesionesSemanales() {
-		return horasDeLaMateria / 2;
-	}
 
 	@Override
 	public String toString() {
-		return "Materia [id=" + id + ", codigo=" + codigo + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
-				+ ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
+		return "Materia [id=" + id + ", codigo=" + codigo + ", nombre=" + nombre + ", semestre=" + semestre
+				+ ", ncreditos=" + ncreditos + ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa
+				+ "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Long.valueOf(codigo), Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
-				Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
+		return Objects.hash(Long.valueOf(codigo), Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria),
+				Long.valueOf(id), Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
 	}
 
 	@Override
@@ -131,7 +117,18 @@ public class Materia {
 		if (getClass() != obj.getClass())
 			return false;
 		Materia other = (Materia) obj;
-		return codigo == other.codigo && correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
-				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
+		return codigo == other.codigo && correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria
+				&& id == other.id && ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre)
+				&& semestre == other.semestre;
 	}
+	
+	/**
+	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las
+	 * horas de la materia, ya que cada sesion dura 2 horas.
+	 */
+	@Transient
+	public int getSesionesSemanales() {
+	    return horasDeLaMateria / 2;
+	}
+	
 }

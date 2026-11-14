@@ -17,6 +17,7 @@ import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
+import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
 
 /**
@@ -41,10 +42,28 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	private static final int SEMESTRE_MAXIMO = 9;
 
 	/**
+	 * Numero de sesiones minimas.
+	 */
+	private static final int SESIONES_MINIMAS = 1;
+	
+	
+	/**
+	 * Horas por sesion.
+	 */
+	private static final int HORAS_POR_SESION = 2;
+	
+	
+	/**
 	 * Repositorio encargado de las operaciones de persistencia de materias.
 	 */
 	@Autowired
 	private MateriaRepository materiaRepo;
+	
+	@Autowired
+	private GrupoRepository grupoRepo;
+	
+	@Autowired
+	private ParametroService parametroServ;
 
 	/**
 	 * Servicio de parametros: maximo de sesiones semanales (RF1, RF9).
@@ -76,13 +95,42 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	@Override
 	public int create(MateriaDTO newData) {
 
-		validarDatos(newData);
+		if (newData == null) {
+			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
+		}
+		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException("El codigo del curso debe tener entre 6 y 10 digitos");
+		}
 
-		String nombre = newData.getNombre().trim();
-
-		if (materiaRepo.findByCodigo(newData.getCodigo()).isPresent()) {
+		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
+			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
+		}
+		if (materiaRepo.existsByCodigo(newData.getCodigo())) {
 			throw new RecursoDuplicadoException("Ya existe una materia con el codigo " + newData.getCodigo());
 		}
+		if (newData.getSemestre() < SEMESTRE_MINIMO || newData.getSemestre() > SEMESTRE_MAXIMO) {
+			throw new DatosInvalidosException(
+					"El semestre debe estar entre " + SEMESTRE_MINIMO + " y " + SEMESTRE_MAXIMO);
+		}
+		if (newData.getNcreditos() <= 0) {
+			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
+		}
+		if (newData.getHorasDeLaMateria() <= 0) {
+			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
+		}
+		if (newData.getHorasDeLaMateria() % HORAS_POR_SESION != 0) {
+			throw new DatosInvalidosException(
+					"Las horas deben ser multiplo de " + HORAS_POR_SESION + " (sesiones de 2 horas)");
+		}
+
+		int sesionesMaximas = parametroServ.getEntero(ClaveParametro.SESIONES_MAXIMAS);
+		int sesiones = newData.getHorasDeLaMateria() / HORAS_POR_SESION;
+		if (sesiones < SESIONES_MINIMAS || sesiones > sesionesMaximas) {
+			throw new DatosInvalidosException("El curso tendria " + sesiones
+					+ " sesiones semanales y debe tener entre " + SESIONES_MINIMAS + " y " + sesionesMaximas);
+		}
+
+		String nombre = newData.getNombre().trim();
 		if (materiaRepo.findByNombre(nombre).isPresent()) {
 			throw new RecursoDuplicadoException("Ya existe una materia con el nombre " + nombre);
 		}
@@ -140,6 +188,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	@Override
 	public int deleteById(Long id) {
 
+		if (!grupoRepo.findByMateriaId(id).isEmpty()) {
+			throw new DatosInvalidosException("No se puede eliminar: el curso tiene grupos");
+		}
 		if (id == null) {
 			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
@@ -148,6 +199,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
 
 		materiaRepo.delete(encontrada);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
@@ -185,46 +237,14 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 */
 	@Override
 	public int updateById(Long id, MateriaDTO newData) {
-
+		
 		if (id == null) {
 			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
 
 		Materia temp = materiaRepo.findById(id)
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
-
-		validarDatos(newData);
-
-		String nombre = newData.getNombre().trim();
-		Optional<Materia> porCodigo = materiaRepo.findByCodigo(newData.getCodigo());
-		Optional<Materia> porNombre = materiaRepo.findByNombre(nombre);
-
-		if (porCodigo.isPresent() && porCodigo.get().getId() != id.longValue()) {
-			throw new RecursoDuplicadoException("Ya existe otra materia con el codigo " + newData.getCodigo());
-		}
-		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
-			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
-		}
-
-		temp.setCodigo(newData.getCodigo());
-		temp.setNombre(nombre);
-		temp.setSemestre(newData.getSemestre());
-		temp.setNcreditos(newData.getNcreditos());
-		temp.setHorasDeLaMateria(newData.getHorasDeLaMateria());
-		temp.setCorrelativa(newData.isCorrelativa());
-		materiaRepo.save(temp);
-		return 0;
-	}
-
-	/**
-	 * Metodo que valida los datos de una materia: codigo positivo, nombre, semestre
-	 * de 1 a 9, creditos y horas positivos, y que las sesiones semanales (horas
-	 * divididas entre 2) esten entre 1 y el maximo configurado (RF1).
-	 * @param newData DTO con los datos a validar.
-	 * @throws DatosInvalidosException si algun dato es invalido.
-	 */
-	private void validarDatos(MateriaDTO newData) {
-
+		
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
 		}
@@ -233,6 +253,13 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		}
 		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
+		}
+		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException("El codigo del curso debe tener entre 6 y 10 digitos");
+		}
+		Optional<Materia> porCodigo = materiaRepo.findByCodigo(newData.getCodigo());
+		if (porCodigo.isPresent() && porCodigo.get().getId() != id.longValue()) {
+			throw new RecursoDuplicadoException("Ya existe otra materia con el codigo " + newData.getCodigo());
 		}
 		if (newData.getSemestre() < SEMESTRE_MINIMO || newData.getSemestre() > SEMESTRE_MAXIMO) {
 			throw new DatosInvalidosException(
@@ -249,6 +276,34 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 			throw new DatosInvalidosException("Las horas de la materia deben dar entre 1 y " + maximo
 					+ " sesiones semanales de 2 horas (entre 2 y " + (maximo * 2) + " horas)");
 		}
+		if (newData.getHorasDeLaMateria() % HORAS_POR_SESION != 0) {
+			throw new DatosInvalidosException(
+					"Las horas deben ser multiplo de " + HORAS_POR_SESION + " (sesiones de 2 horas)");
+		}
+
+		int sesionesMaximas = parametroServ.getEntero(ClaveParametro.SESIONES_MAXIMAS);
+		int sesiones = newData.getHorasDeLaMateria() / HORAS_POR_SESION;
+		if (sesiones < SESIONES_MINIMAS || sesiones > sesionesMaximas) {
+			throw new DatosInvalidosException("El curso tendria " + sesiones
+					+ " sesiones semanales y debe tener entre " + SESIONES_MINIMAS + " y " + sesionesMaximas);
+		}
+
+		String nombre = newData.getNombre().trim();
+		Optional<Materia> porNombre = materiaRepo.findByNombre(nombre);
+
+		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
+			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
+		}
+		
+		temp.setCodigo(newData.getCodigo());
+		temp.setNombre(nombre);
+		temp.setSemestre(newData.getSemestre());
+		temp.setNcreditos(newData.getNcreditos());
+		temp.setHorasDeLaMateria(newData.getHorasDeLaMateria());
+		temp.setCorrelativa(newData.isCorrelativa());
+		materiaRepo.save(temp);
+		parametroServ.marcarPublicado(false);
+		return 0;
 	}
 
 	/**
@@ -364,5 +419,40 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		});
 
 		return dtoList;
+	}
+	
+	/**
+	 * Metodo que busca una materia mediante su codigo institucional.
+	 * @param codigo Codigo de la materia.
+	 * @return Retorna la materia en formato DTO.
+	 * @throws RecursoNoEncontradoException si no existe una materia con ese codigo.
+	 */
+	public MateriaDTO getByCodigo(long codigo) {
+
+		Materia encontrada = materiaRepo.findByCodigo(codigo).orElseThrow(
+				() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+
+		return mapper.map(encontrada, MateriaDTO.class);
+	}
+
+	/**
+	 * Metodo que elimina una materia mediante su codigo institucional.
+	 * @param codigo Codigo de la materia a eliminar.
+	 * @return Retorna 0 si la materia fue eliminada correctamente.
+	 * @throws RecursoNoEncontradoException si no existe una materia con ese codigo.
+	 * @throws DatosInvalidosException si la materia tiene grupos.
+	 */
+	public int deleteByCodigo(long codigo) {
+
+		Materia encontrada = materiaRepo.findByCodigo(codigo).orElseThrow(
+				() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+
+		if (!grupoRepo.findByMateriaId(encontrada.getId()).isEmpty()) {
+			throw new DatosInvalidosException("No se puede eliminar: el curso tiene grupos");
+		}
+
+		materiaRepo.delete(encontrada);
+		parametroServ.marcarPublicado(false);
+		return 0;
 	}
 }

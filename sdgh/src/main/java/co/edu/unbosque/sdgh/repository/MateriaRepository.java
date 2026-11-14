@@ -45,5 +45,9 @@ public interface MateriaRepository extends CrudRepository<Materia, Long> {
 	 * @return Lista de materias que coinciden con el filtro.
 	 */
 	List<Materia> findByCorrelativa(boolean correlativa);
+	
+	Optional<Materia> findByCodigo(long codigo);
+	
+	boolean existsByCodigo(long codigo);
 
 }

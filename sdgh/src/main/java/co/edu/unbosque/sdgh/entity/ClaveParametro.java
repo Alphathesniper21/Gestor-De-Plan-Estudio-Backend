@@ -33,6 +33,7 @@ public final class ClaveParametro {
 	/** Reservada: solo la modifica la publicacion del horario (RF12). */
 	public static final String HORARIO_PUBLICADO = "horario.publicado";
 
-	private ClaveParametro() {
+	public ClaveParametro() {
+		// TODO Auto-generated constructor stub
 	}
 }

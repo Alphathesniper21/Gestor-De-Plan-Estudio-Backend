@@ -43,7 +43,7 @@ public class SesionDTO {
 		this.horaInicio = horaInicio;
 		this.horaFin = horaFin;
 	}
-	
+
 	public long getId() {
 		return id;
 	}
@@ -92,8 +92,7 @@ public class SesionDTO {
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Integer.valueOf(diaSemana), Long.valueOf(grupoId), horaFin, horaInicio,
-				Long.valueOf(id));
+		return Objects.hash(Integer.valueOf(diaSemana), Long.valueOf(grupoId), horaFin, horaInicio, Long.valueOf(id));
 	}
 
 	@Override

@@ -33,12 +33,11 @@ import jakarta.transaction.Transactional;
  * Controlador REST para gestionar los grupos de un curso (RF2). Rutas bajo
  * /grupo. Las consultas estan abiertas a cualquier usuario autenticado; crear,
  * actualizar y eliminar requieren rol GESTOR. Las excepciones del service se
- * capturan aqui y se traducen a codigos HTTP: 404 no existe, 409 duplicado,
- * 406 cupo excedido y 400 los demas errores de validacion.
+ * capturan aqui y se traducen a codigos HTTP.
  */
 @RestController
 @RequestMapping("/grupo")
-@CrossOrigin(origins = { "http://localhost:8080" })
+@CrossOrigin(origins = {"http://localhost:8080"})
 @Transactional
 @Tag(name = "Grupos", description = "Endpoints para la gestion de grupos")
 @SecurityRequirement(name = "bearerAuth")

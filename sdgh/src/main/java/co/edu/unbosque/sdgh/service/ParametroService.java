@@ -120,7 +120,7 @@ public class ParametroService {
 	 * @return Retorna el cupo maximo permitido.
 	 */
 	public int getCupoMaximo() {
-		return (int) Math.floor(getEntero(ClaveParametro.CUPO_BASE) * (1.0 + getDecimal(ClaveParametro.CUPO_TOLERANCIA)));
+		return (int) Math.floor(getEntero(ClaveParametro.CUPO_BASE) * (1.0 + getDecimal(ClaveParametro.CUPO_TOLERANCIA)) + 1e-9);
 	}
 
 	/**
@@ -246,6 +246,7 @@ public class ParametroService {
 		Parametro temp = parametroRepo.findById(claveLimpia).orElse(new Parametro(claveLimpia, valorLimpio));
 		temp.setValor(valorLimpio);
 		parametroRepo.save(temp);
+
 		return 0;
 	}
 }

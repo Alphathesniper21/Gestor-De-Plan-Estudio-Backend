@@ -59,12 +59,9 @@ public class Parametro {
 		return "Parametro [clave=" + clave + ", valor=" + valor + "]";
 	}
 
-	/**
-	 * La identidad del parametro es su clave; el valor cambia con el tiempo.
-	 */
 	@Override
 	public int hashCode() {
-		return Objects.hash(clave);
+		return Objects.hash(clave, valor);
 	}
 
 	@Override
@@ -76,7 +73,7 @@ public class Parametro {
 		if (getClass() != obj.getClass())
 			return false;
 		Parametro other = (Parametro) obj;
-		return Objects.equals(clave, other.clave);
+		return Objects.equals(clave, other.clave) && Objects.equals(valor, other.valor);
 	}
-
+	
 }

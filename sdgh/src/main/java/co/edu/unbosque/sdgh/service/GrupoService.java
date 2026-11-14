@@ -115,6 +115,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 
 		Grupo entity = mapper.map(newData, Grupo.class);
 		grupoRepo.save(entity);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
@@ -157,6 +158,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 		List<Sesion> sesiones = sesionRepo.findByGrupoId(id);
 		sesionRepo.deleteAll(sesiones);
 		grupoRepo.delete(encontrado);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 

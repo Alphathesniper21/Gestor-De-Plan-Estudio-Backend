@@ -100,6 +100,10 @@ public class HorarioService {
 			throw new DatosInvalidosException("No se puede publicar: hay " + pendientes
 					+ " grupo(s) con sesiones pendientes");
 		}
+		
+		if (sesionRepo.count() == 0) {
+			throw new DatosInvalidosException("No se puede publicar un horario sin sesiones");
+		}
 
 		parametroServ.marcarPublicado(true);
 		return 0;
