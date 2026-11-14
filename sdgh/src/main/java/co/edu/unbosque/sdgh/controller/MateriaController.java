@@ -28,13 +28,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.transaction.Transactional;
 
-/**
- * Controlador REST para gestionar los cursos del plan de estudios (RF1, CU02).
- * Rutas bajo /materia. Las consultas estan abiertas a cualquier usuario
- * autenticado; crear, actualizar y eliminar requieren rol GESTOR. Las
- * excepciones se traducen a codigos HTTP: 404 no existe, 409 duplicado y 400
- * los demas errores de validacion.
- */
 @RestController
 @RequestMapping("/materia")
 @CrossOrigin(origins = { "http://localhost:8080" })
@@ -47,8 +40,7 @@ public class MateriaController {
 	private MateriaService materiaService;
 
 	/**
-	 * Crea una nueva materia. 201 si fue exitoso, 409 si el codigo o el nombre ya
-	 * existen y 400 si los datos son invalidos.
+	 * Crea una nueva materia. Retorna 201 si fue exitoso, 406 si hubo error.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
@@ -181,8 +173,7 @@ public class MateriaController {
 	}
 
 	/**
-	 * Actualiza una materia por id. 202 exitoso, 404 no encontrada, 409 codigo o
-	 * nombre duplicado y 400 datos invalidos.
+	 * Actualiza una materia por id. 202 exitoso, 404 no encontrada, 400 error.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
@@ -210,7 +201,7 @@ public class MateriaController {
 	}
 
 	/**
-	 * Elimina una materia por id. 202 si fue exitoso, 404 si no se encontro.
+	 * Elimina una materia por codigo. 202 si fue exitoso, 404 si no se encontro.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@DeleteMapping("/eliminarporcodigo/{codigo}")

@@ -21,10 +21,8 @@ import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
 
 /**
- * Servicio encargado de gestionar las operaciones CRUD de los cursos del plan
- * de estudios (CU02, RF1). Cada curso tiene codigo, nombre, semestre, creditos y
- * horas semanales; las sesiones semanales se derivan de las horas y deben estar
- * entre 1 y el maximo configurado. Las validaciones se hacen al inicio de cada
+ * Servicio encargado de gestionar las operaciones CRUD de las materias del plan
+ * de estudios (CU02 - RF01, RF26). Las validaciones se hacen al inicio de cada
  * metodo y lanzan excepciones personalizadas que son capturadas en el
  * controlador.
  */
@@ -66,12 +64,6 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	private ParametroService parametroServ;
 
 	/**
-	 * Servicio de parametros: maximo de sesiones semanales (RF1, RF9).
-	 */
-	@Autowired
-	private ParametroService parametroServ;
-
-	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
 	 */
 	@Autowired
@@ -84,13 +76,13 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que crea una nueva materia validando los datos obligatorios, el
-	 * rango de sesiones y la unicidad de codigo y nombre (CU02, RF1).
+	 * Metodo que crea una nueva materia validando los datos obligatorios y la
+	 * unicidad de id y nombre (CU02 / RF01).
 	 * @param newData DTO con la informacion de la materia a crear.
 	 * @return Retorna 0 si la materia fue creada correctamente.
 	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos o
 	 *         fuera de rango.
-	 * @throws RecursoDuplicadoException si el codigo o el nombre ya existen.
+	 * @throws RecursoDuplicadoException si el id o el nombre ya existen.
 	 */
 	@Override
 	public int create(MateriaDTO newData) {
@@ -142,7 +134,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene todas las materias registradas (RF1).
+	 * Metodo que obtiene todas las materias registradas (RF26).
 	 * @return Retorna una lista con todas las materias en formato DTO.
 	 */
 	@Override
@@ -162,7 +154,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 //	/**
 //	 * Metodo que elimina una materia mediante su identificador (codigo) recibido
-//	 * como Integer (RF1).
+//	 * como Integer (RF26).
 //	 * @param id id de la materia a eliminar.
 //	 * @return Retorna 0 si la materia fue eliminada correctamente.
 //	 * @throws DatosInvalidosException si el identificador es nulo.
@@ -179,7 +171,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 //	}
 
 	/**
-	 * Metodo que elimina una materia mediante su codigo unico de tipo Long (RF1).
+	 * Metodo que elimina una materia mediante su codigo unico de tipo Long (RF26).
 	 * @param codigo Codigo unico de la materia a eliminar.
 	 * @return Retorna 0 si la materia fue eliminada correctamente.
 	 * @throws DatosInvalidosException si el codigo es nulo.
@@ -205,7 +197,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
 	 * Metodo que actualiza una materia mediante su identificador (id) recibido
-	 * como Integer (CU02 / RF1).
+	 * como Integer (CU02 / RF26).
 	 * @param id id de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
@@ -225,15 +217,14 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 //	}
 
 	/**
-	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF1).
+	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF26).
 	 * @param id de la materia a actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
 	 * @throws DatosInvalidosException si el id es nulo o los datos nuevos son
 	 *         invalidos o estan incompletos.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
-	 * @throws RecursoDuplicadoException si el codigo o el nombre ya pertenecen a
-	 *         otra materia.
+	 * @throws RecursoDuplicadoException si el nombre ya pertenece a otra materia.
 	 */
 	@Override
 	public int updateById(Long id, MateriaDTO newData) {
@@ -247,9 +238,6 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
-		}
-		if (newData.getCodigo() <= 0) {
-			throw new DatosInvalidosException("El codigo de la materia debe ser un numero positivo");
 		}
 		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
@@ -268,13 +256,8 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getNcreditos() <= 0) {
 			throw new DatosInvalidosException("El numero de creditos debe ser mayor a 0");
 		}
-
-		int maximo = parametroServ.getEntero(ClaveParametro.SESIONES_MAXIMAS);
-		int sesiones = newData.getHorasDeLaMateria() / 2;
-
-		if (sesiones < 1 || sesiones > maximo) {
-			throw new DatosInvalidosException("Las horas de la materia deben dar entre 1 y " + maximo
-					+ " sesiones semanales de 2 horas (entre 2 y " + (maximo * 2) + " horas)");
+		if (newData.getHorasDeLaMateria() <= 0) {
+			throw new DatosInvalidosException("Las horas de la materia deben ser mayores a 0");
 		}
 		if (newData.getHorasDeLaMateria() % HORAS_POR_SESION != 0) {
 			throw new DatosInvalidosException(

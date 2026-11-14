@@ -8,11 +8,6 @@ public class MateriaDTO {
 	
 	private long codigo;
 
-	/**
-	 * Codigo institucional del curso (RF1).
-	 */
-	private long codigo;
-
 	private String nombre;
 
 	private int semestre;
