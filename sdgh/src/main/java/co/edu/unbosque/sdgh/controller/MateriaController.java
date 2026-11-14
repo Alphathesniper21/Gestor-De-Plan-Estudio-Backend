@@ -30,7 +30,7 @@ import jakarta.transaction.Transactional;
 
 @RestController
 @RequestMapping("/materia")
-@CrossOrigin(origins = { "http://localhost:8080"})
+@CrossOrigin(origins = { "http://localhost:8080" })
 @Transactional
 @Tag(name = "Materias", description = "Endpoints para la gestion de materias del plan de estudios")
 @SecurityRequirement(name = "bearerAuth")
@@ -45,34 +45,28 @@ public class MateriaController {
 	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
 	@Operation(summary = "Crear materia", description = "Crea una nueva materia. Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "201", description = "Materia creada exitosamente"),
-			@ApiResponse(responseCode = "406", description = "Error al crear materia (datos invalidos o duplicada)")
-	})
-	public ResponseEntity<String> crear(@RequestParam String nombre,
-			@RequestParam int semestre, @RequestParam int ncreditos,
-			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
+	@ApiResponses(value = { @ApiResponse(responseCode = "201", description = "Materia creada exitosamente"),
+			@ApiResponse(responseCode = "406", description = "Error al crear materia (datos invalidos o duplicada)") })
+	public ResponseEntity<String> crear(@RequestParam long codigo,@RequestParam String nombre, @RequestParam int semestre,
+			@RequestParam int ncreditos, @RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
 		try {
-			MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
 			materiaService.create(nueva);
 			return new ResponseEntity<>("Materia creada exitosamente", HttpStatus.CREATED);
 		} catch (DatosInvalidosException e) {
 			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
 		} catch (RecursoDuplicadoException e) {
-			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+			return new ResponseEntity<>("Error al crear materia: " + e.getMessage(), HttpStatus.CONFLICT);
 		}
 	}
-
 
 	/**
 	 * Retorna todas las materias. 202 si hay datos, 204 si la lista esta vacia.
 	 */
 	@GetMapping("/mostrartodo")
 	@Operation(summary = "Obtener todas las materias", description = "Retorna la lista de todas las materias registradas.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-			@ApiResponse(responseCode = "204", description = "No hay materias registradas")
-	})
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
+			@ApiResponse(responseCode = "204", description = "No hay materias registradas") })
 	public ResponseEntity<List<MateriaDTO>> obtenerTodo() {
 		List<MateriaDTO> lista = materiaService.getAll();
 		if (lista.isEmpty()) {
@@ -81,16 +75,26 @@ public class MateriaController {
 			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 		}
 	}
+	
+	@GetMapping("/mostrarporcodigo/{codigo}")
+	@Operation(summary = "Obtener materia por codigo", description = "Retorna una materia segun su codigo institucional.")
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Materia encontrada"),
+			@ApiResponse(responseCode = "404", description = "Materia no encontrada") })
+	public ResponseEntity<MateriaDTO> obtenerPorCodigo(@PathVariable long codigo) {
+		try {
+			return new ResponseEntity<>(materiaService.getByCodigo(codigo), HttpStatus.ACCEPTED);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+		}
+	}
 
 	/**
 	 * Busca una materia por id. 202 si existe, 404 si no se encuentra.
 	 */
 	@GetMapping("/mostrar/{id}")
 	@Operation(summary = "Obtener materia por id", description = "Retorna una materia segun su id.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Materia encontrada"),
-			@ApiResponse(responseCode = "404", description = "Materia no encontrada")
-	})
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Materia encontrada"),
+			@ApiResponse(responseCode = "404", description = "Materia no encontrada") })
 	public ResponseEntity<MateriaDTO> obtenerPorId(@PathVariable Long id) {
 		try {
 			return new ResponseEntity<>(materiaService.getById(id), HttpStatus.ACCEPTED);
@@ -104,28 +108,29 @@ public class MateriaController {
 	 */
 	@GetMapping("/semestre/{semestre}")
 	@Operation(summary = "Obtener materias por semestre", description = "Retorna las materias de un semestre (1 a 9).")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-			@ApiResponse(responseCode = "204", description = "No hay materias en ese semestre")
-	})
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
+			@ApiResponse(responseCode = "204", description = "No hay materias en ese semestre") })
 	public ResponseEntity<List<MateriaDTO>> obtenerPorSemestre(@PathVariable int semestre) {
-		List<MateriaDTO> lista = materiaService.getBySemestre(semestre);
-		if (lista.isEmpty()) {
-			return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
-		} else {
-			return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
+		try {
+			List<MateriaDTO> lista = materiaService.getBySemestre(semestre);
+			if (lista.isEmpty()) {
+				return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
+			} else {
+				return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
+			}
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
 		}
 	}
 
 	/**
-	 * Retorna las materias segun si son correlativas. 202 si hay datos, 204 si no hay ninguna.
+	 * Retorna las materias segun si son correlativas. 202 si hay datos, 204 si no
+	 * hay ninguna.
 	 */
 	@GetMapping("/correlativa/{correlativa}")
 	@Operation(summary = "Obtener materias por correlatividad", description = "Retorna las materias que son (o no) correlativas.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
-			@ApiResponse(responseCode = "204", description = "No hay materias con ese filtro")
-	})
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Lista retornada exitosamente"),
+			@ApiResponse(responseCode = "204", description = "No hay materias con ese filtro") })
 	public ResponseEntity<List<MateriaDTO>> obtenerPorCorrelativa(@PathVariable boolean correlativa) {
 		List<MateriaDTO> lista = materiaService.getByCorrelativa(correlativa);
 		if (lista.isEmpty()) {
@@ -140,10 +145,8 @@ public class MateriaController {
 	 */
 	@GetMapping("/contar")
 	@Operation(summary = "Contar materias", description = "Retorna el numero total de materias registradas.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Conteo retornado exitosamente"),
-			@ApiResponse(responseCode = "204", description = "No hay materias registradas")
-	})
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Conteo retornado exitosamente"),
+			@ApiResponse(responseCode = "204", description = "No hay materias registradas") })
 	public ResponseEntity<Long> contar() {
 		Long count = materiaService.count();
 		if (count == 0) {
@@ -158,10 +161,8 @@ public class MateriaController {
 	 */
 	@GetMapping("/existe/{id}")
 	@Operation(summary = "Verificar existencia de materia", description = "Verifica si existe una materia con el id proporcionado.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Materia encontrada"),
-			@ApiResponse(responseCode = "204", description = "Materia no encontrada")
-	})
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Materia encontrada"),
+			@ApiResponse(responseCode = "204", description = "Materia no encontrada") })
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
 		boolean encontrado = materiaService.existById(id);
 		if (encontrado) {
@@ -177,23 +178,25 @@ public class MateriaController {
 	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
 	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su id. Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Materia actualizada exitosamente"),
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Materia actualizada exitosamente"),
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada"),
-			@ApiResponse(responseCode = "400", description = "Error al actualizar")
-	})
-	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam String nombre,
-			@RequestParam int semestre, @RequestParam int ncreditos,
-			@RequestParam int horasDeLaMateria, @RequestParam boolean correlativa) {
-		MateriaDTO nueva = new MateriaDTO(nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
+			@ApiResponse(responseCode = "400", description = "Error al actualizar") })
+	public ResponseEntity<String> actualizar(@RequestParam Long id, @RequestParam long codigo,@RequestParam String nombre,
+			@RequestParam int semestre, @RequestParam int ncreditos, @RequestParam int horasDeLaMateria,
+			@RequestParam boolean correlativa) {
+		MateriaDTO nueva = new MateriaDTO(codigo, nombre, semestre, ncreditos, horasDeLaMateria, correlativa);
 		if (!materiaService.existById(id)) {
 			return new ResponseEntity<>("Materia no encontrada", HttpStatus.NOT_FOUND);
 		}
-		int status = materiaService.updateById(id, nueva);
-		if (status == 0) {
+		try {
+			materiaService.updateById(id, nueva);
 			return new ResponseEntity<>("Materia actualizada exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al actualizar materia", HttpStatus.BAD_REQUEST);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.CONFLICT);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 
@@ -201,18 +204,32 @@ public class MateriaController {
 	 * Elimina una materia por codigo. 202 si fue exitoso, 404 si no se encontro.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
-	@DeleteMapping("/eliminar/{codigo}")
-	@Operation(summary = "Eliminar materia", description = "Elimina una materia por su codigo. Requiere rol ADMINISTRADOR.")
-	@ApiResponses(value = {
-			@ApiResponse(responseCode = "202", description = "Materia eliminada exitosamente"),
-			@ApiResponse(responseCode = "404", description = "Materia no encontrada")
-	})
-	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Long codigo) {
-		int status = materiaService.deleteById(codigo);
-		if (status == 0) {
+	@DeleteMapping("/eliminarporcodigo/{codigo}")
+	@Operation(summary = "Eliminar materia por codigo", description = "Elimina una materia por su codigo institucional. Requiere rol GESTOR.")
+	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Materia eliminada exitosamente"),
+			@ApiResponse(responseCode = "400", description = "La materia tiene grupos"),
+			@ApiResponse(responseCode = "404", description = "Materia no encontrada") })
+	public ResponseEntity<String> eliminarPorCodigo(@PathVariable long codigo) {
+		try {
+			materiaService.deleteByCodigo(codigo);
 			return new ResponseEntity<>("Materia eliminada exitosamente", HttpStatus.ACCEPTED);
-		} else {
-			return new ResponseEntity<>("Error al eliminar", HttpStatus.NOT_FOUND);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+		}
+	}
+	
+	@PreAuthorize("hasRole('GESTOR')")
+	@DeleteMapping("/eliminar/{id}")
+	public ResponseEntity<String> eliminarPorId(@PathVariable Long id) {
+		try {
+			materiaService.deleteById(id);
+			return new ResponseEntity<>("Materia eliminada exitosamente", HttpStatus.ACCEPTED);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
 		}
 	}
 }

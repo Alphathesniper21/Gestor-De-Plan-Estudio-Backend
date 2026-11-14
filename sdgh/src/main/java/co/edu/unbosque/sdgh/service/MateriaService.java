@@ -17,6 +17,7 @@ import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
+import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
 
 /**
@@ -57,6 +58,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	private MateriaRepository materiaRepo;
 	
 	@Autowired
+	private GrupoRepository grupoRepo;
+	
+	@Autowired
 	private ParametroService parametroServ;
 
 	/**
@@ -86,8 +90,15 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
 		}
+		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException("El codigo del curso debe tener entre 6 y 10 digitos");
+		}
+
 		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
+		}
+		if (materiaRepo.existsByCodigo(newData.getCodigo())) {
+			throw new RecursoDuplicadoException("Ya existe una materia con el codigo " + newData.getCodigo());
 		}
 		if (newData.getSemestre() < SEMESTRE_MINIMO || newData.getSemestre() > SEMESTRE_MAXIMO) {
 			throw new DatosInvalidosException(
@@ -169,6 +180,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	@Override
 	public int deleteById(Long id) {
 
+		if (!grupoRepo.findByMateriaId(id).isEmpty()) {
+			throw new DatosInvalidosException("No se puede eliminar: el curso tiene grupos");
+		}
 		if (id == null) {
 			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
@@ -177,6 +191,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
 
 		materiaRepo.delete(encontrada);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
@@ -213,19 +228,26 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	 */
 	@Override
 	public int updateById(Long id, MateriaDTO newData) {
-
+		
 		if (id == null) {
 			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
 
 		Materia temp = materiaRepo.findById(id)
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
-
+		
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
 		}
 		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
+		}
+		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException("El codigo del curso debe tener entre 6 y 10 digitos");
+		}
+		Optional<Materia> porCodigo = materiaRepo.findByCodigo(newData.getCodigo());
+		if (porCodigo.isPresent() && porCodigo.get().getId() != id.longValue()) {
+			throw new RecursoDuplicadoException("Ya existe otra materia con el codigo " + newData.getCodigo());
 		}
 		if (newData.getSemestre() < SEMESTRE_MINIMO || newData.getSemestre() > SEMESTRE_MAXIMO) {
 			throw new DatosInvalidosException(
@@ -255,7 +277,8 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
 			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
 		}
-
+		
+		temp.setCodigo(newData.getCodigo());
 		temp.setNombre(nombre);
 		temp.setSemestre(newData.getSemestre());
 		temp.setNcreditos(newData.getNcreditos());
@@ -379,5 +402,40 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		});
 
 		return dtoList;
+	}
+	
+	/**
+	 * Metodo que busca una materia mediante su codigo institucional.
+	 * @param codigo Codigo de la materia.
+	 * @return Retorna la materia en formato DTO.
+	 * @throws RecursoNoEncontradoException si no existe una materia con ese codigo.
+	 */
+	public MateriaDTO getByCodigo(long codigo) {
+
+		Materia encontrada = materiaRepo.findByCodigo(codigo).orElseThrow(
+				() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+
+		return mapper.map(encontrada, MateriaDTO.class);
+	}
+
+	/**
+	 * Metodo que elimina una materia mediante su codigo institucional.
+	 * @param codigo Codigo de la materia a eliminar.
+	 * @return Retorna 0 si la materia fue eliminada correctamente.
+	 * @throws RecursoNoEncontradoException si no existe una materia con ese codigo.
+	 * @throws DatosInvalidosException si la materia tiene grupos.
+	 */
+	public int deleteByCodigo(long codigo) {
+
+		Materia encontrada = materiaRepo.findByCodigo(codigo).orElseThrow(
+				() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + codigo));
+
+		if (!grupoRepo.findByMateriaId(encontrada.getId()).isEmpty()) {
+			throw new DatosInvalidosException("No se puede eliminar: el curso tiene grupos");
+		}
+
+		materiaRepo.delete(encontrada);
+		parametroServ.marcarPublicado(false);
+		return 0;
 	}
 }

@@ -5,6 +5,8 @@ import java.util.Objects;
 public class MateriaDTO {
 
 	private long id;
+	
+	private long codigo;
 
 	private String nombre;
 
@@ -19,8 +21,10 @@ public class MateriaDTO {
 	public MateriaDTO() {
 	}
 
-	public MateriaDTO(String nombre, int semestre, int ncreditos, int horasDeLaMateria, boolean correlativa) {
+	public MateriaDTO(long codigo, String nombre, int semestre, int ncreditos, int horasDeLaMateria,
+			boolean correlativa) {
 		super();
+		this.codigo = codigo;
 		this.nombre = nombre;
 		this.semestre = semestre;
 		this.ncreditos = ncreditos;
@@ -34,6 +38,14 @@ public class MateriaDTO {
 
 	public void setId(long id) {
 		this.id = id;
+	}
+
+	public long getCodigo() {
+		return codigo;
+	}
+
+	public void setCodigo(long codigo) {
+		this.codigo = codigo;
 	}
 
 	public String getNombre() {
@@ -75,26 +87,18 @@ public class MateriaDTO {
 	public void setCorrelativa(boolean correlativa) {
 		this.correlativa = correlativa;
 	}
-	
-	/**
-	 * Cantidad de sesiones semanales del curso. Se calcula a partir de las horas
-	 * de la materia, porque cada sesion dura 2 horas (RF3, RF7).
-	 * @return Retorna el numero de sesiones semanales.
-	 */
-	public int getSesionesSemanales() {
-		return horasDeLaMateria / 2;
-	}
 
 	@Override
 	public String toString() {
-		return "MateriaDTO [id=" + id + ", nombre=" + nombre + ", semestre=" + semestre + ", ncreditos=" + ncreditos
-				+ ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa + "]";
+		return "MateriaDTO [id=" + id + ", codigo=" + codigo + ", nombre=" + nombre + ", semestre=" + semestre
+				+ ", ncreditos=" + ncreditos + ", horasDeLaMateria=" + horasDeLaMateria + ", correlativa=" + correlativa
+				+ "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria), Long.valueOf(id),
-				Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
+		return Objects.hash(Long.valueOf(codigo), Boolean.valueOf(correlativa), Integer.valueOf(horasDeLaMateria),
+				Long.valueOf(id), Integer.valueOf(ncreditos), nombre, Integer.valueOf(semestre));
 	}
 
 	@Override
@@ -106,8 +110,13 @@ public class MateriaDTO {
 		if (getClass() != obj.getClass())
 			return false;
 		MateriaDTO other = (MateriaDTO) obj;
-		return correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria && id == other.id
-				&& ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre) && semestre == other.semestre;
+		return codigo == other.codigo && correlativa == other.correlativa && horasDeLaMateria == other.horasDeLaMateria
+				&& id == other.id && ncreditos == other.ncreditos && Objects.equals(nombre, other.nombre)
+				&& semestre == other.semestre;
+	}
+	
+	public int getSesionesSemanales() {
+	    return horasDeLaMateria / 2;
 	}
 
 }
