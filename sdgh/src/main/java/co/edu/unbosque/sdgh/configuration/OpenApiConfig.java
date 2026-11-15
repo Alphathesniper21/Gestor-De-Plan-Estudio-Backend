@@ -29,8 +29,8 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 						"</ol>" +
 						"<h3>Roles</h3>" +
 						"<ul>" +
-						"  <li><b>ADMINISTRADOR</b>: acceso total</li>" +
-						"  <li><b>USUARIO</b>: puede analizar código y ver sus propios análisis</li>" +
+						"  <li><b>GESTOR</b>: crea, modifica y publica el horario</li>" +
+						"  <li><b>CONSULTANTE</b>: solo consulta el horario</li>" +
 						"</ul>"
 				)
 		)

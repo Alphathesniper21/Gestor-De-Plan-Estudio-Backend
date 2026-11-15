@@ -32,12 +32,12 @@ import jakarta.transaction.Transactional;
 /**
  * Controlador REST para gestionar los grupos de un curso (RF2). Rutas bajo
  * /grupo. Las consultas estan abiertas a cualquier usuario autenticado; crear,
- * actualizar y eliminar requieren rol ADMIN. Las excepciones del service se
+ * actualizar y eliminar requieren rol GESTOR. Las excepciones del service se
  * capturan aqui y se traducen a codigos HTTP.
  */
 @RestController
 @RequestMapping("/grupo")
-@CrossOrigin(origins = { "http://localhost:8080" })
+@CrossOrigin(origins = {"http://localhost:8080"})
 @Transactional
 @Tag(name = "Grupos", description = "Endpoints para la gestion de grupos")
 @SecurityRequirement(name = "bearerAuth")
@@ -53,9 +53,9 @@ public class GrupoController {
 	 * Crea un nuevo grupo. 201 si fue exitoso, o el codigo del error de
 	 * validacion con su mensaje.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
-	@Operation(summary = "Crear grupo", description = "Crea un grupo de una materia validando cupo y numero de grupo. Requiere rol ADMIN.")
+	@Operation(summary = "Crear grupo", description = "Crea un grupo de una materia validando cupo y numero de grupo. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "201", description = "Grupo creado exitosamente"),
 		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
@@ -122,9 +122,9 @@ public class GrupoController {
 		@ApiResponse(responseCode = "204", description = "La materia no tiene grupos"),
 		@ApiResponse(responseCode = "400", description = "Id de materia invalido")
 	})
-	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long id) {
+	public ResponseEntity<List<GrupoDTO>> obtenerPorMateria(@PathVariable long materiaId) {
 		try {
-			List<GrupoDTO> lista = grupoServ.getByMateriaId(id);
+			List<GrupoDTO> lista = grupoServ.getByMateriaId(materiaId);
 			if (lista.isEmpty()) {
 				return new ResponseEntity<>(lista, HttpStatus.NO_CONTENT);
 			}
@@ -171,9 +171,9 @@ public class GrupoController {
 	 * Actualiza el numero de grupo y el cupo planeado. 202 si fue exitoso, o el
 	 * codigo del error de validacion con su mensaje.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar grupo", description = "Actualiza el numero de grupo y el cupo planeado. Requiere rol ADMIN.")
+	@Operation(summary = "Actualizar grupo", description = "Actualiza el numero de grupo y el cupo planeado. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Grupo actualizado exitosamente"),
 		@ApiResponse(responseCode = "400", description = "Datos invalidos"),
@@ -198,9 +198,9 @@ public class GrupoController {
 	/**
 	 * Elimina un grupo y sus sesiones. 202 si fue exitoso, 404 si no se encontro.
 	 */
-	@PreAuthorize("hasRole('ADMIN')")
+	@PreAuthorize("hasRole('GESTOR')")
 	@DeleteMapping("/eliminar/{id}")
-	@Operation(summary = "Eliminar grupo", description = "Elimina un grupo y sus sesiones. Requiere rol ADMIN.")
+	@Operation(summary = "Eliminar grupo", description = "Elimina un grupo y sus sesiones. Requiere rol GESTOR.")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "202", description = "Grupo eliminado exitosamente"),
 		@ApiResponse(responseCode = "404", description = "Grupo no encontrado")
