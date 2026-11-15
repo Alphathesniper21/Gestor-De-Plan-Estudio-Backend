@@ -13,12 +13,15 @@ import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
 import co.edu.unbosque.sdgh.entity.ClaveParametro;
+import co.edu.unbosque.sdgh.entity.Grupo;
 import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.LimiteSesionesExcedidoException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
+import co.edu.unbosque.sdgh.repository.SesionRepository;
 
 /**
  * Servicio encargado de gestionar las operaciones CRUD de las materias del plan
@@ -62,6 +65,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	
 	@Autowired
 	private ParametroService parametroServ;
+	
+	@Autowired
+	private SesionRepository sesionRepo;
 
 	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
@@ -275,6 +281,15 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
 			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
+		}
+		
+		for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
+			int asignadas = sesionRepo.findByGrupoId(grupo.getId()).size();
+			if (asignadas > sesiones) {
+				throw new LimiteSesionesExcedidoException("El grupo " + grupo.getNumeroGrupo() + " ya tiene "
+						+ asignadas + " sesiones asignadas y el curso solo tendria " + sesiones
+						+ ". Quite sesiones antes de reducir las horas");
+			}
 		}
 		
 		temp.setCodigo(newData.getCodigo());
