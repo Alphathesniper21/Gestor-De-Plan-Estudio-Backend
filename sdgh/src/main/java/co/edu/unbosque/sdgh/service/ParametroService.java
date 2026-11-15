@@ -246,7 +246,7 @@ public class ParametroService {
 		Parametro temp = parametroRepo.findById(claveLimpia).orElse(new Parametro(claveLimpia, valorLimpio));
 		temp.setValor(valorLimpio);
 		parametroRepo.save(temp);
-
+		marcarPublicado(false);
 		return 0;
 	}
 }

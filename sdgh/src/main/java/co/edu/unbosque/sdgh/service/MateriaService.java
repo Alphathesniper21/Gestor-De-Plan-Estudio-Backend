@@ -199,28 +199,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		parametroServ.marcarPublicado(false);
 		return 0;
 	}
-
-	/**
-	 * Metodo que actualiza una materia mediante su identificador (id) recibido
-	 * como Integer (CU02 / RF26).
-	 * @param id id de la materia a actualizar.
-	 * @param newData DTO con la nueva informacion de la materia.
-	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el identificador es nulo o los datos
-	 *         nuevos son invalidos o estan incompletos.
-	 * @throws RecursoNoEncontradoException si la materia no existe.
-	 * @throws RecursoDuplicadoException si el nombre pertenece a otra materia.
-	 */
-//	@Override
-//	public int updateById(Long id, MateriaDTO newData) {
-//
-//		if (id == null) {
-//			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
-//		}
-//
-//		return updateById(id.longValue(), newData);
-//	}
-
+	
 	/**
 	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF26).
 	 * @param id de la materia a actualizar.
