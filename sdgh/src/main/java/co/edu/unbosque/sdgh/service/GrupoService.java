@@ -1,5 +1,5 @@
 /**
- * Paquete de servicios del aplicativo.
+ * Paquete que contiene los servicios del aplicativo.
  */
 package co.edu.unbosque.sdgh.service;
 
@@ -27,10 +27,12 @@ import co.edu.unbosque.sdgh.repository.SesionRepository;
 /**
  * Servicio encargado de gestionar las operaciones CRUD de los grupos de un
  * curso (RF2). Valida el cupo planeado contra el limite institucional (cupo
- * base mas la tolerancia, por defecto 40 mas 10 %, leidos de los parametros). Las reglas de horario (franja, pausa, cruce y limite de
- * sesiones) corresponden a SesionService. Las validaciones se hacen al inicio
- * de cada metodo y lanzan excepciones personalizadas que son capturadas en el
- * controlador.
+ * base mas la tolerancia, por defecto 40 mas 10 %, leidos de los parametros).
+ * Las reglas de horario (franja, pausa, cruce y limite de sesiones) corresponden
+ * a SesionService. Las validaciones se hacen al inicio de cada metodo y lanzan
+ * excepciones personalizadas que son capturadas en el controlador.
+ *
+ * @author Sebastian Toyo
  */
 @Service
 public class GrupoService implements CRUDOperation<GrupoDTO> {
@@ -75,10 +77,11 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	 * Metodo que crea un nuevo grupo de un curso validando los datos
 	 * obligatorios, que el curso exista, que el numero de grupo no se repita
 	 * dentro del curso y que el cupo no supere el limite institucional (RF2).
-	 * @param newData DTO con la informacion del grupo a crear.
+	 *
+	 * @param newData DTO con la informacion del grupo que se desea crear.
 	 * @return Retorna 0 si el grupo fue creado correctamente.
-	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos o
-	 *         fuera de rango.
+	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos
+	 *         o fuera de rango.
 	 * @throws RecursoNoEncontradoException si el curso no existe.
 	 * @throws RecursoDuplicadoException si el curso ya tiene un grupo con ese
 	 *         numero.
@@ -122,8 +125,10 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene todos los grupos registrados.
-	 * @return Retorna una lista con todos los grupos en formato DTO.
+	 * Metodo que obtiene todos los grupos registrados y convierte su
+	 * informacion al formato DTO, incluyendo el nombre de la materia asociada.
+	 *
+	 * @return Lista con todos los grupos registrados en formato DTO.
 	 */
 	@Override
 	public List<GrupoDTO> getAll() {
@@ -142,8 +147,10 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	}
 
 	/**
-	 * Metodo que elimina un grupo junto con sus sesiones.
-	 * @param id Identificador del grupo a eliminar.
+	 * Metodo que elimina un grupo junto con todas las sesiones que tiene
+	 * asociadas y actualiza el estado de publicacion del horario.
+	 *
+	 * @param id Identificador del grupo que se desea eliminar.
 	 * @return Retorna 0 si el grupo fue eliminado correctamente.
 	 * @throws DatosInvalidosException si el identificador es nulo.
 	 * @throws RecursoNoEncontradoException si el grupo no existe.
@@ -164,22 +171,25 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 		parametroServ.marcarPublicado(false);
 		return 0;
 	}
-	
-	
 
 	/**
 	 * Metodo que actualiza el numero de grupo y el cupo planeado de un grupo
-	 * existente. El curso del grupo no se modifica (RF2).
-	 * @param id Identificador del grupo a actualizar.
+	 * existente. El curso del grupo no se modifica (RF2). Tambien verifica que
+	 * no se generen duplicados ni cruces de horario con otros grupos.
+	 *
+	 * @param id Identificador del grupo que se desea actualizar.
 	 * @param newData DTO con la nueva informacion del grupo.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
 	 * @throws DatosInvalidosException si el id es nulo o los datos nuevos son
 	 *         nulos, estan incompletos o fuera de rango.
-	 * @throws RecursoNoEncontradoException si el grupo no existe.
+	 * @throws RecursoNoEncontradoException si el grupo o alguna materia asociada
+	 *         no existe.
 	 * @throws RecursoDuplicadoException si el curso ya tiene otro grupo con ese
 	 *         numero.
 	 * @throws CupoExcedidoException si el cupo planeado supera el limite
 	 *         institucional.
+	 * @throws CruceHorarioException si el cambio de numero de grupo genera un
+	 *         cruce de horario con otro grupo.
 	 */
 	@Override
 	public int updateById(Long id, GrupoDTO newData) {
@@ -215,7 +225,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 			throw new RecursoDuplicadoException(
 					"La materia " + temp.getMateriaId() + " ya tiene el grupo " + newData.getNumeroGrupo());
 		}
-		
+
 		if (newData.getNumeroGrupo() != temp.getNumeroGrupo()) {
 			Materia materia = materiaRepo.findById(temp.getMateriaId()).orElseThrow(
 					() -> new RecursoNoEncontradoException("No existe una materia con el id " + temp.getMateriaId()));
@@ -242,7 +252,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 				}
 			}
 		}
-		
+
 		parametroServ.marcarPublicado(false);
 		temp.setNumeroGrupo(newData.getNumeroGrupo());
 		temp.setCupoPlaneado(newData.getCupoPlaneado());
@@ -252,7 +262,8 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 
 	/**
 	 * Metodo que cuenta la cantidad total de grupos registrados.
-	 * @return Retorna la cantidad total de grupos.
+	 *
+	 * @return Cantidad total de grupos.
 	 */
 	@Override
 	public long count() {
@@ -261,9 +272,10 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	}
 
 	/**
-	 * Metodo que verifica si un grupo existe mediante su identificador.
-	 * @param id Identificador del grupo a verificar.
-	 * @return Retorna true si el grupo existe o false en caso contrario.
+	 * Metodo que verifica si existe un grupo mediante su identificador.
+	 *
+	 * @param id Identificador del grupo que se desea verificar.
+	 * @return true si el grupo existe o false en caso contrario.
 	 */
 	@Override
 	public boolean existById(Long id) {
@@ -272,9 +284,11 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	}
 
 	/**
-	 * Metodo que busca un grupo mediante su identificador.
-	 * @param id Identificador del grupo.
-	 * @return Retorna el grupo en formato DTO.
+	 * Metodo que busca un grupo mediante su identificador y obtiene su
+	 * informacion en formato DTO, incluyendo el nombre de la materia asociada.
+	 *
+	 * @param id Identificador del grupo que se desea consultar.
+	 * @return Informacion del grupo en formato DTO.
 	 * @throws DatosInvalidosException si el identificador es nulo.
 	 * @throws RecursoNoEncontradoException si el grupo no existe.
 	 */
@@ -293,9 +307,10 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene todos los grupos asociados a una materia.
-	 * @param materiaId Codigo de la materia.
-	 * @return Retorna una lista de grupos en formato DTO de la materia.
+	 * Metodo que obtiene todos los grupos asociados a una materia especifica.
+	 *
+	 * @param materiaId Codigo de la materia cuyos grupos se desean consultar.
+	 * @return Lista de grupos asociados a la materia en formato DTO.
 	 * @throws DatosInvalidosException si el codigo de la materia no es positivo.
 	 */
 	public List<GrupoDTO> getByMateriaId(long materiaId) {

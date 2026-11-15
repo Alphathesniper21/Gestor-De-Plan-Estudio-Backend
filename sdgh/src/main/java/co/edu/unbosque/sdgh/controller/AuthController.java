@@ -31,7 +31,19 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 
 /**
  * Controlador REST para la autenticacion de usuarios.
- * Maneja los endpoints de inicio de sesion y registro de usuarios.
+ * <p>
+ * Maneja los endpoints publicos de inicio de sesion ({@code /auth/login}) y
+ * registro de usuarios ({@code /auth/registro}). El inicio de sesion genera un
+ * token JWT que el cliente debe enviar en las peticiones posteriores. Las
+ * excepciones lanzadas por la capa de servicio se capturan aqui y se traducen
+ * a los codigos HTTP correspondientes.
+ * </p>
+ *
+ * @author Martín Peña
+ * @version 1.0
+ * @since 1.0
+ * @see co.edu.unbosque.sdgh.service.UsuarioService
+ * @see co.edu.unbosque.sdgh.security.JwtUtil
  */
 @RestController
 @RequestMapping("/auth")
@@ -105,7 +117,6 @@ public class AuthController {
 	/**
 	 * Metodo endpoint para el registro de nuevos usuarios.
 	 * Crea un nuevo usuario con rol CONSULTA si los datos son validos y no existen duplicados.
-	 * @param id Codigo del usuario.
 	 * @param nombre Nombre completo del usuario.
 	 * @param nombreUsuario Nombre de usuario deseado.
 	 * @param correoElectronico Correo electronico del usuario.
