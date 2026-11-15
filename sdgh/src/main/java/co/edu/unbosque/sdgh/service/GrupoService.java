@@ -134,6 +134,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 		entityList.forEach((entidad) -> {
 
 			GrupoDTO dto = mapper.map(entidad, GrupoDTO.class);
+			dto.setNombreMateria(materiaRepo.findById(entidad.getMateriaId()).map(Materia::getNombre).orElse(null));
 			dtoList.add(dto);
 		});
 
@@ -286,7 +287,9 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 		Grupo encontrado = grupoRepo.findById(id)
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe un grupo con el id " + id));
 
-		return mapper.map(encontrado, GrupoDTO.class);
+		GrupoDTO dto = mapper.map(encontrado, GrupoDTO.class);
+		dto.setNombreMateria(materiaRepo.findById(encontrado.getMateriaId()).map(Materia::getNombre).orElse(null));
+		return dto;
 	}
 
 	/**
@@ -307,6 +310,7 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 		entityList.forEach((entidad) -> {
 
 			GrupoDTO dto = mapper.map(entidad, GrupoDTO.class);
+			dto.setNombreMateria(materiaRepo.findById(entidad.getMateriaId()).map(Materia::getNombre).orElse(null));
 			dtoList.add(dto);
 		});
 
