@@ -10,7 +10,12 @@ public class GrupoDTO {
 	 * Codigo de la materia (curso) a la que pertenece el grupo.
 	 */
 	private long materiaId;
-
+	
+	/**
+	 * Nombre de la materia (curso) a la que pertenece el grupo.
+	 */
+	private String nombreMateria;
+	
 	/**
 	 * Numero del grupo dentro del curso. Define el bloque (01, 02...).
 	 */
@@ -25,9 +30,10 @@ public class GrupoDTO {
 		// TODO Auto-generated constructor stub
 	}
 
-	public GrupoDTO(long materiaId, int numeroGrupo, int cupoPlaneado) {
+	public GrupoDTO(long materiaId, String nombreMateria, int numeroGrupo, int cupoPlaneado) {
 		super();
 		this.materiaId = materiaId;
+		this.nombreMateria = nombreMateria;
 		this.numeroGrupo = numeroGrupo;
 		this.cupoPlaneado = cupoPlaneado;
 	}
@@ -48,6 +54,14 @@ public class GrupoDTO {
 		this.materiaId = materiaId;
 	}
 
+	public String getNombreMateria() {
+		return nombreMateria;
+	}
+
+	public void setNombreMateria(String nombreMateria) {
+		this.nombreMateria = nombreMateria;
+	}
+
 	public int getNumeroGrupo() {
 		return numeroGrupo;
 	}
@@ -66,13 +80,14 @@ public class GrupoDTO {
 
 	@Override
 	public String toString() {
-		return "GrupoDTO [id=" + id + ", materiaId=" + materiaId + ", numeroGrupo=" + numeroGrupo + ", cupoPlaneado="
-				+ cupoPlaneado + "]";
+		return "GrupoDTO [id=" + id + ", materiaId=" + materiaId + ", nombreMateria=" + nombreMateria + ", numeroGrupo="
+				+ numeroGrupo + ", cupoPlaneado=" + cupoPlaneado + "]";
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(Integer.valueOf(cupoPlaneado), id, Long.valueOf(materiaId), Integer.valueOf(numeroGrupo));
+		return Objects.hash(Integer.valueOf(cupoPlaneado), id, Long.valueOf(materiaId), nombreMateria,
+				Integer.valueOf(numeroGrupo));
 	}
 
 	@Override
@@ -85,7 +100,7 @@ public class GrupoDTO {
 			return false;
 		GrupoDTO other = (GrupoDTO) obj;
 		return cupoPlaneado == other.cupoPlaneado && Objects.equals(id, other.id) && materiaId == other.materiaId
-				&& numeroGrupo == other.numeroGrupo;
+				&& Objects.equals(nombreMateria, other.nombreMateria) && numeroGrupo == other.numeroGrupo;
 	}
 
 }
