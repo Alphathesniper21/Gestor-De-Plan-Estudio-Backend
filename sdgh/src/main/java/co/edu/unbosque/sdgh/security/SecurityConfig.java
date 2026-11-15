@@ -74,7 +74,7 @@ public class SecurityConfig {
 					"/v3/api-docs/**",
 					"/v3/api-docs.yaml").permitAll()
 
-				.requestMatchers("/admin/**").hasRole("ADMIN")
+				.requestMatchers("/admin/**").hasRole("GESTOR")
 
 				.anyRequest().authenticated()
 			)

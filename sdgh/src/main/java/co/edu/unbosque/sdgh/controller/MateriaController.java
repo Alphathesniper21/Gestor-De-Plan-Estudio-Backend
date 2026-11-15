@@ -44,7 +44,7 @@ public class MateriaController {
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/crear")
-	@Operation(summary = "Crear materia", description = "Crea una nueva materia. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Crear materia", description = "Crea una nueva materia. Requiere rol GESTOR.")
 	@ApiResponses(value = { @ApiResponse(responseCode = "201", description = "Materia creada exitosamente"),
 			@ApiResponse(responseCode = "406", description = "Error al crear materia (datos invalidos o duplicada)") })
 	public ResponseEntity<String> crear(@RequestParam long codigo,@RequestParam String nombre, @RequestParam int semestre,
@@ -177,7 +177,7 @@ public class MateriaController {
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
-	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su id. Requiere rol ADMINISTRADOR.")
+	@Operation(summary = "Actualizar materia", description = "Actualiza una materia existente por su id. Requiere rol GESTOR.")
 	@ApiResponses(value = { @ApiResponse(responseCode = "202", description = "Materia actualizada exitosamente"),
 			@ApiResponse(responseCode = "404", description = "Materia no encontrada"),
 			@ApiResponse(responseCode = "400", description = "Error al actualizar") })
