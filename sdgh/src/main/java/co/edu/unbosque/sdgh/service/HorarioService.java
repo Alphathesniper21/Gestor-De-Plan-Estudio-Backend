@@ -3,8 +3,10 @@
  */
 package co.edu.unbosque.sdgh.service;
 
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
 import co.edu.unbosque.sdgh.dto.SesionDTO;
+import co.edu.unbosque.sdgh.entity.ClaveParametro;
 import co.edu.unbosque.sdgh.entity.Grupo;
 import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.entity.Sesion;
@@ -51,7 +54,7 @@ public class HorarioService {
 
 	/**
 	 * Servicio de parametros, donde se guarda y consulta el estado de
-	 * publicacion del horario.
+	 * publicacion del horario y se leen la franja y la pausa vigentes.
 	 */
 	@Autowired
 	private ParametroService parametroServ;
@@ -95,12 +98,17 @@ public class HorarioService {
 
 	/**
 	 * Metodo que publica el horario (RF12), siempre que todos los grupos tengan
-	 * asignadas las sesiones correspondientes y exista al menos una sesion
-	 * registrada. El estado de publicacion queda almacenado en la base de datos.
+	 * asignadas las sesiones correspondientes, exista al menos una sesion
+	 * registrada y todas las sesiones cumplan la franja institucional y la
+	 * pausa vigentes en los parametros (RF-4, RF-5, RF-9). Esta ultima
+	 * revision es necesaria porque los parametros pueden cambiar despues de
+	 * ubicar las sesiones. El estado de publicacion queda almacenado en la
+	 * base de datos.
 	 *
 	 * @return Retorna 0 si el horario fue publicado correctamente.
-	 * @throws DatosInvalidosException si existen grupos con sesiones pendientes
-	 *         o si no hay sesiones registradas.
+	 * @throws DatosInvalidosException si existen grupos con sesiones pendientes,
+	 *         si no hay sesiones registradas o si hay sesiones fuera del
+	 *         horario configurado.
 	 */
 	public int publicar() {
 
@@ -113,6 +121,45 @@ public class HorarioService {
 
 		if (sesionRepo.count() == 0) {
 			throw new DatosInvalidosException("No se puede publicar un horario sin sesiones");
+		}
+
+		Map<String, String> p = parametroServ.obtenerMapa();
+		LocalTime horaInicioJornada = LocalTime.parse(p.get(ClaveParametro.HORA_INICIO_JORNADA));
+		LocalTime horaFinSemana = LocalTime.parse(p.get(ClaveParametro.HORA_FIN_SEMANA));
+		LocalTime horaFinSabado = LocalTime.parse(p.get(ClaveParametro.HORA_FIN_SABADO));
+		LocalTime horaInicioPausa = LocalTime.parse(p.get(ClaveParametro.PAUSA_INICIO));
+		LocalTime horaFinPausa = LocalTime.parse(p.get(ClaveParametro.PAUSA_FIN));
+
+		int fueraDeHorario = 0;
+
+		for (Sesion s : sesionRepo.findAll()) {
+			LocalTime inicio = s.getHoraInicio();
+			LocalTime fin = s.getHoraFin();
+			int dia = s.getDiaSemana();
+
+			boolean fuera = false;
+
+			if (inicio.isBefore(horaInicioJornada)) {
+				fuera = true;
+			}
+			if (dia <= 5 && fin.isAfter(horaFinSemana)) {
+				fuera = true;
+			}
+			if (dia == 6 && fin.isAfter(horaFinSabado)) {
+				fuera = true;
+			}
+			if (inicio.isBefore(horaFinPausa) && horaInicioPausa.isBefore(fin)) {
+				fuera = true;
+			}
+
+			if (fuera) {
+				fueraDeHorario++;
+			}
+		}
+
+		if (fueraDeHorario > 0) {
+			throw new DatosInvalidosException("No se puede publicar: hay " + fueraDeHorario
+					+ " sesion(es) fuera del horario configurado");
 		}
 
 		parametroServ.marcarPublicado(true);
