@@ -90,10 +90,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
 		}
-		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
-			throw new DatosInvalidosException("El codigo del curso debe tener entre 6 y 10 digitos");
+		if (newData.getCodigo() <= 0 || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException("El codigo del curso debe ser un numero positivo de hasta 10 digitos");
 		}
-
 		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
 		}
@@ -242,8 +241,8 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (newData.getNombre() == null || newData.getNombre().trim().isEmpty()) {
 			throw new DatosInvalidosException("El nombre de la materia no puede estar vacio");
 		}
-		if (newData.getCodigo() < 100000L || newData.getCodigo() > 9999999999L) {
-			throw new DatosInvalidosException("El codigo del curso debe tener entre 6 y 10 digitos");
+		if (newData.getCodigo() <= 0 || newData.getCodigo() > 9999999999L) {
+			throw new DatosInvalidosException("El codigo del curso debe ser un numero positivo de hasta 10 digitos");
 		}
 		Optional<Materia> porCodigo = materiaRepo.findByCodigo(newData.getCodigo());
 		if (porCodigo.isPresent() && porCodigo.get().getId() != id.longValue()) {
