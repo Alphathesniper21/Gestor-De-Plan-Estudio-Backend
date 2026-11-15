@@ -29,6 +29,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.transaction.Transactional;
 
 /**
@@ -67,8 +69,10 @@ public class SesionController {
 		@ApiResponse(responseCode = "404", description = "El grupo o su curso no existen")
 	})
 	public ResponseEntity<String> crear(@RequestParam long grupoId, @RequestParam int diaSemana,
-			@RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime horaInicio,
-			@RequestParam @DateTimeFormat(pattern = "HH:mm") LocalTime horaFin) {
+			@RequestParam @DateTimeFormat(pattern = "HH:mm")
+			@Parameter(schema = @Schema(type = "string", example = "14:00")) LocalTime horaInicio,
+			@RequestParam @DateTimeFormat(pattern = "HH:mm")
+			@Parameter(schema = @Schema(type = "string", example = "16:00")) LocalTime horaFin ){
 		try {
 			SesionDTO nueva = new SesionDTO();
 			nueva.setGrupoId(grupoId);

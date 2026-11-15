@@ -33,7 +33,7 @@ public class SecurityConfig {
 	/**
 	 * Filtro JWT que intercepta y valida los tokens en cada peticion.
 	 */
-	private final JwtFilter jwtFilter;
+	private final JwtAuthenticationFilter jwtFilter;
 
 	/**
      * Constructor de la configuracion de seguridad.
@@ -41,7 +41,7 @@ public class SecurityConfig {
      * @param userDetailsService Servicio de carga de detalles de usuario.
      * @param jwtFilter          Filtro JWT para validacion de tokens.
 	 */
-	public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtFilter jwtFilter) {
+	public SecurityConfig(UserDetailsServiceImpl userDetailsService, JwtAuthenticationFilter jwtFilter) {
 		this.userDetailsService = userDetailsService;
 		this.jwtFilter          = jwtFilter;
 	}
