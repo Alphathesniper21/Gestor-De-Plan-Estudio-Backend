@@ -76,7 +76,7 @@ public class UsuarioController {
 		return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 	}
 
-	@GetMapping("/mostrar/{codigo}")
+	@GetMapping("/mostrar/{id}")
 	@Operation(summary = "Obtener usuario por codigo", description = "Retorna un usuario segun su codigo.")
 	public ResponseEntity<UsuarioDTO> obtenerPorCodigo(@PathVariable Long id) {
 		try {
@@ -116,7 +116,7 @@ public class UsuarioController {
 		return new ResponseEntity<>(count, HttpStatus.ACCEPTED);
 	}
 
-	@GetMapping("/existe/{codigo}")
+	@GetMapping("/existe/{id}")
 	@Operation(summary = "Verificar existencia de usuario", description = "Verifica si existe un usuario con el codigo proporcionado.")
 	public ResponseEntity<Boolean> existe(@PathVariable Long id) {
 		if (usuarioServ.existById(id)) {
@@ -150,7 +150,7 @@ public class UsuarioController {
 		}
 	}
 
-	@DeleteMapping("/eliminar/{codigo}")
+	@DeleteMapping("/eliminar/{id}")
 	@Operation(summary = "Eliminar usuario", description = "Elimina un usuario por su codigo.")
 	public ResponseEntity<String> eliminarPorCodigo(@PathVariable Long id) {
 		try {
