@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
+import co.edu.unbosque.sdgh.exception.CruceHorarioException;
 import co.edu.unbosque.sdgh.exception.CupoExcedidoException;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
@@ -75,7 +76,7 @@ public class GrupoController {
 		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
 				| CupoExcedidoException e) {
 			return new ResponseEntity<>("Error al crear grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
-		}
+		} 
 	}
 
 	/**
@@ -189,9 +190,14 @@ public class GrupoController {
 			nuevo.setCupoPlaneado(cupoPlaneado);
 			grupoServ.updateById(id, nuevo);
 			return new ResponseEntity<>("Grupo actualizado exitosamente", HttpStatus.ACCEPTED);
-		} catch (DatosInvalidosException | RecursoNoEncontradoException | RecursoDuplicadoException
-				| CupoExcedidoException e) {
+		} catch (DatosInvalidosException | CruceHorarioException e) {
 			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+		} catch (RecursoNoEncontradoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.NOT_FOUND);
+		} catch (RecursoDuplicadoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.CONFLICT);
+		} catch (CupoExcedidoException e) {
+			return new ResponseEntity<>("Error al actualizar grupo: " + e.getMessage(), HttpStatus.NOT_ACCEPTABLE);
 		}
 	}
 

@@ -13,12 +13,15 @@ import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
 import co.edu.unbosque.sdgh.entity.ClaveParametro;
+import co.edu.unbosque.sdgh.entity.Grupo;
 import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
+import co.edu.unbosque.sdgh.exception.LimiteSesionesExcedidoException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
+import co.edu.unbosque.sdgh.repository.SesionRepository;
 
 /**
  * Servicio encargado de gestionar las operaciones CRUD de las materias del plan
@@ -62,6 +65,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	
 	@Autowired
 	private ParametroService parametroServ;
+	
+	@Autowired
+	private SesionRepository sesionRepo;
 
 	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
@@ -193,28 +199,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		parametroServ.marcarPublicado(false);
 		return 0;
 	}
-
-	/**
-	 * Metodo que actualiza una materia mediante su identificador (id) recibido
-	 * como Integer (CU02 / RF26).
-	 * @param id id de la materia a actualizar.
-	 * @param newData DTO con la nueva informacion de la materia.
-	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el identificador es nulo o los datos
-	 *         nuevos son invalidos o estan incompletos.
-	 * @throws RecursoNoEncontradoException si la materia no existe.
-	 * @throws RecursoDuplicadoException si el nombre pertenece a otra materia.
-	 */
-//	@Override
-//	public int updateById(Long id, MateriaDTO newData) {
-//
-//		if (id == null) {
-//			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
-//		}
-//
-//		return updateById(id.longValue(), newData);
-//	}
-
+	
 	/**
 	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF26).
 	 * @param id de la materia a actualizar.
@@ -275,6 +260,23 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
 			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
+		}
+		
+		if (newData.getSemestre() != temp.getSemestre()) {
+			for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
+				if (!sesionRepo.findByGrupoId(grupo.getId()).isEmpty()) {
+					throw new DatosInvalidosException("No se puede cambiar el semestre: el curso ya tiene sesiones asignadas");
+				}
+			}
+		}
+		
+		for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
+			int asignadas = sesionRepo.findByGrupoId(grupo.getId()).size();
+			if (asignadas > sesiones) {
+				throw new LimiteSesionesExcedidoException("El grupo " + grupo.getNumeroGrupo() + " ya tiene "
+						+ asignadas + " sesiones asignadas y el curso solo tendria " + sesiones
+						+ ". Quite sesiones antes de reducir las horas");
+			}
 		}
 		
 		temp.setCodigo(newData.getCodigo());

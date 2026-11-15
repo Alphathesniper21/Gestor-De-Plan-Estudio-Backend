@@ -11,8 +11,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
+import co.edu.unbosque.sdgh.dto.SesionDTO;
 import co.edu.unbosque.sdgh.entity.Grupo;
 import co.edu.unbosque.sdgh.entity.Materia;
+import co.edu.unbosque.sdgh.entity.Sesion;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
@@ -117,5 +119,16 @@ public class HorarioService {
 	public boolean estaPublicado() {
 
 		return parametroServ.estaPublicado();
+	}
+	
+	public List<SesionDTO> getSesionesPublicadas() {
+		if (!parametroServ.estaPublicado()) {
+			throw new DatosInvalidosException("El horario no esta publicado");
+		}
+		List<SesionDTO> lista = new ArrayList<>();
+		for (Sesion s : sesionRepo.findAll()) {
+			lista.add(mapper.map(s, SesionDTO.class));
+		}
+		return lista;
 	}
 }

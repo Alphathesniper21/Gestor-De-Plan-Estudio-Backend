@@ -59,6 +59,15 @@ public class HorarioController {
 		return new ResponseEntity<>(lista, HttpStatus.ACCEPTED);
 	}
 
+	@GetMapping("/publicado")
+	public ResponseEntity<Object> obtenerPublicado() {
+		try {
+			return new ResponseEntity<>(horarioServ.getSesionesPublicadas(), HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+		}
+	}
+	
 	/**
 	 * Publica el horario (RF12). 202 si se publico, 400 si hay grupos pendientes.
 	 */
