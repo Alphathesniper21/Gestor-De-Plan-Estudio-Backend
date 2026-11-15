@@ -283,6 +283,14 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
 		}
 		
+		if (newData.getSemestre() != temp.getSemestre()) {
+			for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
+				if (!sesionRepo.findByGrupoId(grupo.getId()).isEmpty()) {
+					throw new DatosInvalidosException("No se puede cambiar el semestre: el curso ya tiene sesiones asignadas");
+				}
+			}
+		}
+		
 		for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
 			int asignadas = sesionRepo.findByGrupoId(grupo.getId()).size();
 			if (asignadas > sesiones) {

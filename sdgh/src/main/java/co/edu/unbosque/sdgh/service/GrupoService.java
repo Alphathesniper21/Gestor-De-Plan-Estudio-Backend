@@ -13,7 +13,9 @@ import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
 import co.edu.unbosque.sdgh.entity.Grupo;
+import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.entity.Sesion;
+import co.edu.unbosque.sdgh.exception.CruceHorarioException;
 import co.edu.unbosque.sdgh.exception.CupoExcedidoException;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
@@ -161,6 +163,8 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 		parametroServ.marcarPublicado(false);
 		return 0;
 	}
+	
+	
 
 	/**
 	 * Metodo que actualiza el numero de grupo y el cupo planeado de un grupo
@@ -210,7 +214,35 @@ public class GrupoService implements CRUDOperation<GrupoDTO> {
 			throw new RecursoDuplicadoException(
 					"La materia " + temp.getMateriaId() + " ya tiene el grupo " + newData.getNumeroGrupo());
 		}
-
+		
+		if (newData.getNumeroGrupo() != temp.getNumeroGrupo()) {
+			Materia materia = materiaRepo.findById(temp.getMateriaId()).orElseThrow(
+					() -> new RecursoNoEncontradoException("No existe una materia con el id " + temp.getMateriaId()));
+			List<Sesion> propias = sesionRepo.findByGrupoId(id);
+			for (Grupo otro : grupoRepo.findByNumeroGrupo(newData.getNumeroGrupo())) {
+				if (otro.getMateriaId() == temp.getMateriaId()) {
+					continue;
+				}
+				Materia materiaOtro = materiaRepo.findById(otro.getMateriaId()).orElse(null);
+				if (materiaOtro == null || materiaOtro.getSemestre() != materia.getSemestre()) {
+					continue;
+				}
+				for (Sesion existente : sesionRepo.findByGrupoId(otro.getId())) {
+					for (Sesion propia : propias) {
+						if (propia.getDiaSemana() == existente.getDiaSemana()
+								&& propia.getHoraInicio().isBefore(existente.getHoraFin())
+								&& existente.getHoraInicio().isBefore(propia.getHoraFin())) {
+							throw new CruceHorarioException("Al pasar al bloque " + newData.getNumeroGrupo()
+									+ " el grupo se cruza con " + materiaOtro.getNombre() + " el dia "
+									+ propia.getDiaSemana() + " (" + existente.getHoraInicio() + " - "
+									+ existente.getHoraFin() + ")");
+						}
+					}
+				}
+			}
+		}
+		
+		parametroServ.marcarPublicado(false);
 		temp.setNumeroGrupo(newData.getNumeroGrupo());
 		temp.setCupoPlaneado(newData.getCupoPlaneado());
 		grupoRepo.save(temp);
