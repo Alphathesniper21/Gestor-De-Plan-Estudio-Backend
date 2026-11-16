@@ -12,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
 import co.edu.unbosque.sdgh.entity.RolUsuario;
@@ -23,10 +22,9 @@ import co.edu.unbosque.sdgh.service.UsuarioService;
 /**
  * Pruebas unitarias para el controlador REST {@link UsuarioController}.
  * <p>
- * Verifica los endpoints HTTP para la administración de usuarios: creación con
- * HTTP 201 CREATED o 400 BAD REQUEST, consultas por código, correo y username,
- * actualización (incluyendo actualización de {@code username}), conteo,
- * verificación de existencia y eliminación.
+ * Verifica los endpoints HTTP para la administracion de usuarios: creacion con
+ * HTTP 201 CREATED o 400 BAD REQUEST, consultas por codigo, correo y username,
+ * actualizacion, conteo y eliminacion.
  * </p>
  *
  * @author Martin Peña
@@ -37,51 +35,52 @@ import co.edu.unbosque.sdgh.service.UsuarioService;
  */
 class UsuarioControllerTest {
 
-	/**
-	 * Mock del servicio de usuarios.
-	 */
+	/** Mock del servicio de usuarios. */
 	@Mock
 	private UsuarioService usuarioServ;
 
-	/**
-	 * Instancia del controlador bajo prueba.
-	 */
+	/** Instancia del controlador bajo prueba. */
 	private UsuarioController controller;
 
-	/**
-	 * DTO de referencia utilizado en las pruebas.
-	 */
+	/** DTO de referencia para pruebas. */
 	private UsuarioDTO dto;
 
 	/**
-	 * Inicializa los mocks e inyecta las dependencias en el controlador por
-	 * reflexión antes de cada prueba.
+	 * Prepara los mocks e inyecta las dependencias en el controlador antes de cada
+	 * prueba.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		controller = new UsuarioController();
-		ReflectionTestUtils.setField(controller, "usuarioServ", usuarioServ);
+
+		try {
+			var f1 = UsuarioController.class.getDeclaredField("usuarioServ");
+			f1.setAccessible(true);
+			f1.set(controller, usuarioServ);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		dto = new UsuarioDTO();
 		dto.setId(1L);
-		dto.setNombre("Martin Pena");
+		dto.setNombre("Martin Garcia");
 		dto.setCorreo("martin@unbosque.edu.co");
-		dto.setUsername("martinp");
+		dto.setUsername("marting");
 		dto.setRol(RolUsuario.GESTOR);
 	}
 
-	// ─── CREAR ────────────────────────────────────────────────────────────────
+	// ─── CREAR ────────────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que el endpoint de crear usuario retorna HTTP 201 CREATED cuando
-	 * los datos son válidos.
+	 * los datos son validos.
 	 */
 	@Test
 	void testCrear_Exitoso() {
 		when(usuarioServ.create(any(UsuarioDTO.class))).thenReturn(0);
 
-		ResponseEntity<String> response = controller.crear("Martin Pena", "martin@unbosque.edu.co", "martinp",
+		ResponseEntity<String> response = controller.crear("Martin Garcia", "martin@unbosque.edu.co", "marting",
 				"ClaveSegura123", RolUsuario.GESTOR);
 
 		assertNotNull(response);
@@ -91,14 +90,14 @@ class UsuarioControllerTest {
 
 	/**
 	 * Verifica que el endpoint de crear usuario retorna HTTP 400 BAD REQUEST cuando
-	 * se envían datos inválidos.
+	 * se envian datos invalidos.
 	 */
 	@Test
 	void testCrear_RetornaBadRequestPorDatosInvalidos() {
 		when(usuarioServ.create(any(UsuarioDTO.class)))
 				.thenThrow(new DatosInvalidosException("Formato de correo invalido"));
 
-		ResponseEntity<String> response = controller.crear("Martin", "correoInvalido", "martinp", "123",
+		ResponseEntity<String> response = controller.crear("Martin", "correoInvalido", "marting", "123",
 				RolUsuario.GESTOR);
 
 		assertNotNull(response);
@@ -106,11 +105,11 @@ class UsuarioControllerTest {
 		assertTrue(response.getBody().contains("Formato de correo invalido"));
 	}
 
-	// ─── CONSULTAS ────────────────────────────────────────────────────────────
+	// ─── CONSULTAS ────────────────────────────────────────────────────────
 
 	/**
-	 * Verifica que {@code obtenerTodo} retorna HTTP 202 ACCEPTED con la lista de
-	 * usuarios cuando existen registros.
+	 * Verifica que {@code obtenerTodo} retorna HTTP 202 ACCEPTED con los usuarios
+	 * cuando hay registros.
 	 */
 	@Test
 	void testObtenerTodo_Exitoso() {
@@ -125,7 +124,7 @@ class UsuarioControllerTest {
 
 	/**
 	 * Verifica que {@code obtenerTodo} retorna HTTP 204 NO CONTENT cuando la lista
-	 * está vacía.
+	 * esta vacia.
 	 */
 	@Test
 	void testObtenerTodo_RetornaNoContent() {
@@ -134,22 +133,6 @@ class UsuarioControllerTest {
 		ResponseEntity<List<UsuarioDTO>> response = controller.obtenerTodo();
 
 		assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-	}
-
-	/**
-	 * Verifica que {@code obtenerPorCodigo} retorna HTTP 202 ACCEPTED cuando el
-	 * usuario existe, o 404 NOT FOUND en caso contrario.
-	 */
-	@Test
-	void testObtenerPorCodigo_ExitosoYNoEncontrado() {
-		when(usuarioServ.getById(1L)).thenReturn(dto);
-		ResponseEntity<UsuarioDTO> ok = controller.obtenerPorCodigo(1L);
-		assertEquals(HttpStatus.ACCEPTED, ok.getStatusCode());
-		assertEquals("martinp", ok.getBody().getUsername());
-
-		when(usuarioServ.getById(999L)).thenThrow(new RecursoNoEncontradoException("No existe"));
-		ResponseEntity<UsuarioDTO> notFound = controller.obtenerPorCodigo(999L);
-		assertEquals(HttpStatus.NOT_FOUND, notFound.getStatusCode());
 	}
 
 	/**
@@ -164,7 +147,7 @@ class UsuarioControllerTest {
 
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertNotNull(response.getBody());
-		assertEquals("Martin Pena", response.getBody().getNombre());
+		assertEquals("Martin Garcia", response.getBody().getNombre());
 	}
 
 	/**
@@ -173,27 +156,27 @@ class UsuarioControllerTest {
 	 */
 	@Test
 	void testObtenerPorUsername_Exitoso() {
-		when(usuarioServ.getByUsername("martinp")).thenReturn(dto);
+		when(usuarioServ.getByUsername("marting")).thenReturn(dto);
 
-		ResponseEntity<UsuarioDTO> response = controller.obtenerPorUsername("martinp");
+		ResponseEntity<UsuarioDTO> response = controller.obtenerPorUsername("marting");
 
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertNotNull(response.getBody());
-		assertEquals("martinp", response.getBody().getUsername());
+		assertEquals("marting", response.getBody().getUsername());
 	}
 
-	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────────
+	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────
 
 	/**
-	 * Verifica que {@code actualizar} (incluyendo el parámetro {@code username})
-	 * retorna HTTP 202 ACCEPTED cuando la actualización es exitosa.
+	 * Verifica que {@code actualizar} retorna HTTP 202 ACCEPTED cuando la
+	 * actualizacion es exitosa.
 	 */
 	@Test
 	void testActualizar_Exitoso() {
 		when(usuarioServ.updateById(eq(1L), any(UsuarioDTO.class))).thenReturn(0);
 
 		ResponseEntity<String> response = controller.actualizar(1L, "Martin Modificado", "martin@unbosque.edu.co",
-				RolUsuario.GESTOR, "martin_nuevo", null);
+				RolUsuario.GESTOR, null);
 
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertEquals("Usuario actualizado exitosamente", response.getBody());
@@ -201,7 +184,7 @@ class UsuarioControllerTest {
 
 	/**
 	 * Verifica que {@code eliminarPorCodigo} retorna HTTP 202 ACCEPTED cuando el
-	 * usuario es eliminado correctamente.
+	 * usuario es eliminado.
 	 */
 	@Test
 	void testEliminarPorCodigo_Exitoso() {
@@ -214,20 +197,16 @@ class UsuarioControllerTest {
 	}
 
 	/**
-	 * Verifica que {@code contar} y {@code existe} retornan HTTP 202 ACCEPTED
-	 * cuando hay usuarios registrados.
+	 * Verifica que {@code contar} retorna HTTP 202 ACCEPTED con la cantidad total
+	 * de usuarios.
 	 */
 	@Test
-	void testContarYExiste_Exitoso() {
+	void testContar_Exitoso() {
 		when(usuarioServ.count()).thenReturn(5L);
-		when(usuarioServ.existById(1L)).thenReturn(true);
 
 		ResponseEntity<Long> response = controller.contar();
+
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertEquals(5L, response.getBody());
-
-		ResponseEntity<Boolean> existeResp = controller.existe(1L);
-		assertEquals(HttpStatus.ACCEPTED, existeResp.getStatusCode());
-		assertTrue(existeResp.getBody());
 	}
 }

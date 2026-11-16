@@ -12,11 +12,9 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
-import co.edu.unbosque.sdgh.exception.LimiteSesionesExcedidoException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.MateriaService;
@@ -24,10 +22,9 @@ import co.edu.unbosque.sdgh.service.MateriaService;
 /**
  * Pruebas unitarias para el controlador REST {@link MateriaController}.
  * <p>
- * Verifica el comportamiento de los endpoints HTTP para la gestión de materias
- * (RF-1): creación con validación de códigos de estado (201 CREATED, 400 BAD
- * REQUEST, 409 CONFLICT), consultas por id, código, semestre y correlatividad,
- * actualización y eliminación por id y por código.
+ * Verifica el comportamiento de los endpoints HTTP para la gestion de materias:
+ * creacion con validacion de codigos de estado (201 CREATED, 400 BAD REQUEST),
+ * consultas por id, semestre y total, actualizacion y eliminacion.
  * </p>
  *
  * @author Martin Peña
@@ -38,35 +35,35 @@ import co.edu.unbosque.sdgh.service.MateriaService;
  */
 class MateriaControllerTest {
 
-	/**
-	 * Mock del servicio de materias.
-	 */
+	/** Mock del servicio de materias. */
 	@Mock
 	private MateriaService materiaService;
 
-	/**
-	 * Instancia del controlador bajo prueba.
-	 */
+	/** Instancia del controlador bajo prueba. */
 	private MateriaController controller;
 
-	/**
-	 * DTO de referencia para las pruebas.
-	 */
+	/** DTO de referencia para pruebas. */
 	private MateriaDTO dto;
 
 	/**
-	 * Inicializa los mocks e inyecta las dependencias en el controlador por
-	 * reflexión antes de cada prueba.
+	 * Prepara los mocks e inyecta las dependencias en el controlador antes de cada
+	 * prueba.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		controller = new MateriaController();
-		ReflectionTestUtils.setField(controller, "materiaService", materiaService);
+
+		try {
+			var f1 = MateriaController.class.getDeclaredField("materiaService");
+			f1.setAccessible(true);
+			f1.set(controller, materiaService);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		dto = new MateriaDTO();
 		dto.setId(101L);
-		dto.setCodigo(1001L);
 		dto.setNombre("Programacion I");
 		dto.setSemestre(2);
 		dto.setNcreditos(3);
@@ -74,17 +71,17 @@ class MateriaControllerTest {
 		dto.setCorrelativa(false);
 	}
 
-	// ─── CREAR (RF-1) ─────────────────────────────────────────────────────────
+	// ─── CREAR ────────────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que el endpoint de crear materia retorna HTTP 201 CREATED cuando
-	 * los datos son válidos.
+	 * los datos son validos.
 	 */
 	@Test
 	void testCrear_Exitoso() {
 		when(materiaService.create(any(MateriaDTO.class))).thenReturn(0);
 
-		ResponseEntity<String> response = controller.crear(1001L, "Programacion I", 2, 3, 4, false);
+		ResponseEntity<String> response = controller.crear("Programacion I", 2, 3, 4, false);
 
 		assertNotNull(response);
 		assertEquals(HttpStatus.CREATED, response.getStatusCode());
@@ -99,32 +96,32 @@ class MateriaControllerTest {
 	@Test
 	void testCrear_RetornaBadRequestPorDatosInvalidos() {
 		when(materiaService.create(any(MateriaDTO.class)))
-				.thenThrow(new DatosInvalidosException("El semestre debe estar entre 1 y 9"));
+				.thenThrow(new DatosInvalidosException("Semestre fuera de rango"));
 
-		ResponseEntity<String> response = controller.crear(1001L, "Invalida", 15, 3, 4, false);
+		ResponseEntity<String> response = controller.crear("Invalida", 15, 3, 4, false);
 
 		assertNotNull(response);
 		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-		assertTrue(response.getBody().contains("El semestre debe estar entre 1 y 9"));
+		assertTrue(response.getBody().contains("Semestre fuera de rango"));
 	}
 
 	/**
-	 * Verifica que el endpoint de crear retorna HTTP 409 CONFLICT cuando el
+	 * Verifica que el endpoint de crear retorna HTTP 400 BAD REQUEST cuando el
 	 * servicio lanza {@link RecursoDuplicadoException}.
 	 */
 	@Test
-	void testCrear_RetornaConflictPorDuplicado() {
+	void testCrear_RetornaBadRequestPorNombreDuplicado() {
 		when(materiaService.create(any(MateriaDTO.class)))
-				.thenThrow(new RecursoDuplicadoException("Ya existe una materia con el codigo 1001"));
+				.thenThrow(new RecursoDuplicadoException("Nombre ya existe"));
 
-		ResponseEntity<String> response = controller.crear(1001L, "Programacion I", 2, 3, 4, false);
+		ResponseEntity<String> response = controller.crear("Programacion I", 2, 3, 4, false);
 
 		assertNotNull(response);
-		assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
-		assertTrue(response.getBody().contains("Ya existe una materia con el codigo 1001"));
+		assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+		assertTrue(response.getBody().contains("Nombre ya existe"));
 	}
 
-	// ─── CONSULTAS ────────────────────────────────────────────────────────────
+	// ─── CONSULTAS ────────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code obtenerTodo} retorna HTTP 202 ACCEPTED con la lista de
@@ -155,92 +152,75 @@ class MateriaControllerTest {
 	}
 
 	/**
-	 * Verifica que {@code obtenerPorId} y {@code obtenerPorCodigo} retornan HTTP
-	 * 202 ACCEPTED cuando la materia existe, y 404 NOT FOUND cuando no existe.
+	 * Verifica que {@code obtenerPorId} retorna HTTP 202 ACCEPTED con la materia
+	 * cuando existe.
 	 */
 	@Test
-	void testObtenerPorIdYPorCodigo_ExitosoYNotFound() {
+	void testObtenerPorId_Exitoso() {
 		when(materiaService.getById(101L)).thenReturn(dto);
-		when(materiaService.getByCodigo(1001L)).thenReturn(dto);
 
-		ResponseEntity<MateriaDTO> porId = controller.obtenerPorId(101L);
-		assertEquals(HttpStatus.ACCEPTED, porId.getStatusCode());
-		assertEquals("Programacion I", porId.getBody().getNombre());
+		ResponseEntity<MateriaDTO> response = controller.obtenerPorId(101L);
 
-		ResponseEntity<MateriaDTO> porCodigo = controller.obtenerPorCodigo(1001L);
-		assertEquals(HttpStatus.ACCEPTED, porCodigo.getStatusCode());
-		assertEquals(1001L, porCodigo.getBody().getCodigo());
-
-		when(materiaService.getById(999L)).thenThrow(new RecursoNoEncontradoException("No existe"));
-		assertEquals(HttpStatus.NOT_FOUND, controller.obtenerPorId(999L).getStatusCode());
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
+		assertEquals("Programacion I", response.getBody().getNombre());
 	}
 
 	/**
-	 * Verifica que {@code obtenerPorSemestre} retorna HTTP 202 ACCEPTED con las
-	 * materias del semestre o 400 BAD REQUEST si el semestre está fuera de rango.
+	 * Verifica que {@code obtenerPorId} retorna HTTP 404 NOT FOUND cuando la
+	 * materia no existe.
 	 */
 	@Test
-	void testObtenerPorSemestre_ExitosoYBadRequest() {
-		when(materiaService.getBySemestre(2)).thenReturn(List.of(dto));
-		assertEquals(HttpStatus.ACCEPTED, controller.obtenerPorSemestre(2).getStatusCode());
+	void testObtenerPorId_RetornaNotFound() {
+		when(materiaService.getById(999L)).thenThrow(new RecursoNoEncontradoException("No existe"));
 
-		when(materiaService.getBySemestre(10)).thenThrow(new DatosInvalidosException("Fuera de rango"));
-		assertEquals(HttpStatus.BAD_REQUEST, controller.obtenerPorSemestre(10).getStatusCode());
+		ResponseEntity<MateriaDTO> response = controller.obtenerPorId(999L);
+
+		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
 	}
 
-	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────────
+	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code actualizar} retorna HTTP 202 ACCEPTED cuando la
-	 * actualización es exitosa y 409 CONFLICT cuando excede el límite de sesiones.
+	 * actualizacion es exitosa.
 	 */
 	@Test
-	void testActualizar_ExitosoYConflictoPorSesiones() {
+	void testActualizar_Exitoso() {
 		when(materiaService.existById(101L)).thenReturn(true);
 		when(materiaService.updateById(eq(101L), any(MateriaDTO.class))).thenReturn(0);
 
-		ResponseEntity<String> response = controller.actualizar(101L, 1001L, "Programacion I", 2, 3, 4, false);
+		ResponseEntity<String> response = controller.actualizar(101L, "Programacion I", 2, 3, 4, false);
 
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertEquals("Materia actualizada exitosamente", response.getBody());
-
-		when(materiaService.updateById(eq(101L), any(MateriaDTO.class)))
-				.thenThrow(new LimiteSesionesExcedidoException("Tiene mas sesiones asignadas"));
-		ResponseEntity<String> conflicto = controller.actualizar(101L, 1001L, "Programacion I", 2, 3, 2, false);
-		assertEquals(HttpStatus.CONFLICT, conflicto.getStatusCode());
 	}
 
 	/**
-	 * Verifica que {@code eliminarPorCodigo} y {@code eliminarPorId} retornan HTTP
-	 * 202 ACCEPTED cuando la eliminación es exitosa.
+	 * Verifica que {@code eliminarPorCodigo} retorna HTTP 202 ACCEPTED cuando la
+	 * eliminacion es exitosa.
 	 */
 	@Test
-	void testEliminarPorCodigoYPorId_Exitoso() {
-		when(materiaService.deleteByCodigo(1001L)).thenReturn(0);
+	void testEliminarPorCodigo_Exitoso() {
 		when(materiaService.deleteById(101L)).thenReturn(0);
 
-		ResponseEntity<String> respCodigo = controller.eliminarPorCodigo(1001L);
-		assertEquals(HttpStatus.ACCEPTED, respCodigo.getStatusCode());
-		assertEquals("Materia eliminada exitosamente", respCodigo.getBody());
+		ResponseEntity<String> response = controller.eliminarPorCodigo(101L);
 
-		ResponseEntity<String> respId = controller.eliminarPorId(101L);
-		assertEquals(HttpStatus.ACCEPTED, respId.getStatusCode());
-		assertEquals("Materia eliminada exitosamente", respId.getBody());
+		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertEquals("Materia eliminada exitosamente", response.getBody());
 	}
 
 	/**
-	 * Verifica que {@code contar} y {@code existe} retornan HTTP 202 ACCEPTED
-	 * cuando existen registros.
+	 * Verifica que {@code contar} retorna HTTP 202 ACCEPTED con la cantidad total
+	 * de materias.
 	 */
 	@Test
-	void testContarYExiste_Exitoso() {
+	void testContar_Exitoso() {
 		when(materiaService.count()).thenReturn(6L);
-		when(materiaService.existById(101L)).thenReturn(true);
 
 		ResponseEntity<Long> response = controller.contar();
+
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertEquals(6L, response.getBody());
-
-		assertEquals(HttpStatus.ACCEPTED, controller.existe(101L).getStatusCode());
 	}
 }

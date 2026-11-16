@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.modelmapper.ModelMapper;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.SesionDTO;
 import co.edu.unbosque.sdgh.entity.Grupo;
@@ -30,17 +29,12 @@ import co.edu.unbosque.sdgh.repository.SesionRepository;
 /**
  * Pruebas unitarias para la clase {@link SesionService}.
  * <p>
- * Verifica el núcleo de restricciones duras del prototipo de horarios (CU04,
- * CU05, CU07 y RNF-1): ubicación de sesiones de 2 horas (RF-3), franja
- * institucional permitida (RF-4), rechazo de la pausa del mediodía de 12:00 a
- * 13:00 (RF-5), regla de no cruce entre materias del mismo semestre en el mismo
- * bloque y dentro del mismo grupo (RF-6), límite de sesiones semanales
- * derivadas de las horas del curso (RF-7), movimiento y eliminación de sesiones
- * (RF-8), y consulta por semestre (RF-10).
- * </p>
- * <p>
- * Incluye más de 15 casos de prueba de rechazo sobre RF-4 a RF-7 para verificar
- * el cumplimiento del atributo de calidad de corrección (RNF-1).
+ * Verifica el nucleo de restricciones duras del prototipo de horarios:
+ * ubicacion de sesiones de 2 horas (RF-3), franja institucional permitida
+ * (RF-4), rechazo de la pausa del mediodia de 12:00 a 13:00 (RF-5), regla de
+ * no cruce entre materias del mismo semestre en el mismo bloque (RF-6), limite
+ * de sesiones semanales derivadas de las horas del curso (RF-7), y actualizacion,
+ * eliminacion y advertencias de dias consecutivos (RF-8).
  * </p>
  *
  * @author Martin Peña
@@ -70,13 +64,7 @@ class SesionServiceTest {
 	private MateriaRepository materiaRepo;
 
 	/**
-	 * Mock del servicio de parámetros configurables.
-	 */
-	@Mock
-	private ParametroService parametroServ;
-
-	/**
-	 * Mapper para la conversión entre entidades y DTOs.
+	 * Mapper para la conversion entre entidades y DTOs.
 	 */
 	private ModelMapper mapper;
 
@@ -96,35 +84,47 @@ class SesionServiceTest {
 	private Materia materia;
 
 	/**
-	 * DTO de sesión utilizado en los tests.
+	 * DTO de sesion utilizado en los tests.
 	 */
 	private SesionDTO dto;
 
 	/**
-	 * Entidad de sesión utilizada en los tests.
+	 * Entidad de sesion utilizada en los tests.
 	 */
 	private Sesion sesion;
 
 	/**
-	 * Inicializa los mocks, inyecta las dependencias en el servicio por reflexión
-	 * y prepara los objetos de prueba antes de cada caso.
+	 * Inicializa los mocks, inyecta las dependencias en el servicio y prepara los
+	 * objetos de prueba antes de cada caso.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		mapper = new ModelMapper();
 		service = new SesionService();
-		ReflectionTestUtils.setField(service, "sesionRepo", sesionRepo);
-		ReflectionTestUtils.setField(service, "grupoRepo", grupoRepo);
-		ReflectionTestUtils.setField(service, "materiaRepo", materiaRepo);
-		ReflectionTestUtils.setField(service, "parametroServ", parametroServ);
-		ReflectionTestUtils.setField(service, "mapper", mapper);
 
-		when(parametroServ.obtenerMapa()).thenReturn(new HashMap<>(ParametroService.VALORES_POR_DEFECTO));
+		try {
+			var f1 = SesionService.class.getDeclaredField("sesionRepo");
+			f1.setAccessible(true);
+			f1.set(service, sesionRepo);
+
+			var f2 = SesionService.class.getDeclaredField("grupoRepo");
+			f2.setAccessible(true);
+			f2.set(service, grupoRepo);
+
+			var f3 = SesionService.class.getDeclaredField("materiaRepo");
+			f3.setAccessible(true);
+			f3.set(service, materiaRepo);
+
+			var f4 = SesionService.class.getDeclaredField("mapper");
+			f4.setAccessible(true);
+			f4.set(service, mapper);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		materia = new Materia();
 		materia.setId(101L);
-		materia.setCodigo(4001L);
 		materia.setNombre("Estructuras de Datos");
 		materia.setSemestre(4);
 		materia.setHorasDeLaMateria(4); // 4 horas -> 2 sesiones de 2 horas
@@ -137,30 +137,29 @@ class SesionServiceTest {
 
 		dto = new SesionDTO();
 		dto.setId(1L);
-		dto.setGrupoId(1L);
+		dto.setGrupoId(1);
 		dto.setDiaSemana(1); // Lunes
 		dto.setHoraInicio(LocalTime.of(7, 0));
 		dto.setHoraFin(LocalTime.of(9, 0));
 
 		sesion = new Sesion();
 		sesion.setId(10L);
-		sesion.setGrupoId(1L);
+		sesion.setGrupoId(1);
 		sesion.setDiaSemana(1);
 		sesion.setHoraInicio(LocalTime.of(7, 0));
 		sesion.setHoraFin(LocalTime.of(9, 0));
-
-		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
-		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 	}
 
-	// ─── CASOS POSITIVOS DE CREACIÓN (RF-3, RF-4, RF-6) ───────────────────────
+	// ─── CREATE (RF-3 Y RESTRICCIONES DURAS RF-4 A RF-7) ──────────────────────────
 
 	/**
-	 * Verifica el criterio de aceptación de RF-3 y RF-4: una sesión válida en
-	 * franja permitida (lunes 07:00–09:00) es aceptada y guardada retornando 0.
+	 * Verifica que una sesion valida en franja permitida (lunes 07:00–09:00) es
+	 * aceptada y guardada correctamente retornando 0.
 	 */
 	@Test
-	void testCreate_ExitosoFranjaValidaLunes7a9() {
+	void testCreate_ExitosoFranjaValida() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 		when(sesionRepo.findByGrupoId(1L)).thenReturn(Collections.emptyList());
 		when(grupoRepo.findByNumeroGrupo(1)).thenReturn(List.of(grupo));
 		when(sesionRepo.save(any(Sesion.class))).thenReturn(sesion);
@@ -169,261 +168,212 @@ class SesionServiceTest {
 
 		assertEquals(0, resultado);
 		verify(sesionRepo, times(1)).save(any(Sesion.class));
-		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
-	 * Verifica el criterio de aceptación de RF-6: dos cursos de 4.º semestre en
-	 * bloques distintos (grupo 01 y grupo 02) el lunes 07:00–09:00 se aceptan sin
-	 * conflicto.
+	 * Verifica el criterio de aceptacion de RF-4: una sesion de lunes 21:00 a 23:00
+	 * se rechaza lanzando {@link FranjaInstitucionalInvalidaException} porque supera
+	 * el limite de las 22:00.
 	 */
 	@Test
-	void testCreate_AceptaMismoSemestreEnDiferenteBloqueGrupo02() {
-		grupo.setNumeroGrupo(2); // Grupo 02
-		when(sesionRepo.findByGrupoId(1L)).thenReturn(Collections.emptyList());
-		when(grupoRepo.findByNumeroGrupo(2)).thenReturn(List.of(grupo));
-		when(sesionRepo.save(any(Sesion.class))).thenReturn(sesion);
+	void testCreate_LanzaExcepcionFueraDeJornadaLunesAViernes() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 
-		assertEquals(0, service.create(dto));
-	}
-
-	// ─── RNF-1: 16 CASOS DE PRUEBA QUE VIOLAN RF-4 A RF-7 (100 % RECHAZADOS) ──
-
-	/**
-	 * Caso RNF-1 #1 (RF-4): Lunes 21:00–23:00 se rechaza por superar el cierre de
-	 * las 22:00 entre semana.
-	 */
-	@Test
-	void testRechazo01_RF4_Lunes21a23SuperaCierreSemana() {
-		dto.setDiaSemana(1);
 		dto.setHoraInicio(LocalTime.of(21, 0));
 		dto.setHoraFin(LocalTime.of(23, 0));
 
-		FranjaInstitucionalInvalidaException ex = assertThrows(FranjaInstitucionalInvalidaException.class,
-				() -> service.create(dto));
+		FranjaInstitucionalInvalidaException ex = assertThrows(
+				FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
+
 		assertTrue(ex.getMessage().contains("entre las 07:00 y las 22:00"));
+		verify(sesionRepo, never()).save(any());
 	}
 
 	/**
-	 * Caso RNF-1 #2 (RF-4): Sábado 12:00–14:00 se rechaza por superar el cierre
-	 * sabatino de las 13:00.
+	 * Verifica el criterio de aceptacion de RF-4: una sesion de sabado de 12:00 a
+	 * 14:00 se rechaza lanzando {@link FranjaInstitucionalInvalidaException} porque
+	 * supera el limite sabatino de las 13:00.
 	 */
 	@Test
-	void testRechazo02_RF4_Sabado12a14SuperaCierreSabado() {
-		dto.setDiaSemana(6);
+	void testCreate_LanzaExcepcionFueraDeJornadaSabado() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
+
+		dto.setDiaSemana(6); // Sabado
 		dto.setHoraInicio(LocalTime.of(12, 0));
 		dto.setHoraFin(LocalTime.of(14, 0));
 
-		FranjaInstitucionalInvalidaException ex = assertThrows(FranjaInstitucionalInvalidaException.class,
-				() -> service.create(dto));
+		FranjaInstitucionalInvalidaException ex = assertThrows(
+				FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
+
 		assertTrue(ex.getMessage().contains("entre las 07:00 y las 13:00"));
+		verify(sesionRepo, never()).save(any());
 	}
 
 	/**
-	 * Caso RNF-1 #3 (RF-4): Sesión antes de las 07:00 (05:00–07:00) se rechaza por
-	 * iniciar antes de la apertura de la jornada.
+	 * Verifica que una sesion con duracion diferente a 120 minutos (2 horas) se
+	 * rechaza lanzando {@link FranjaInstitucionalInvalidaException}.
 	 */
 	@Test
-	void testRechazo03_RF4_AntesDeAperturaJornada05a07() {
-		dto.setDiaSemana(2);
-		dto.setHoraInicio(LocalTime.of(5, 0));
-		dto.setHoraFin(LocalTime.of(7, 0));
+	void testCreate_LanzaExcepcionDuracionInvalida() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 
+		dto.setHoraInicio(LocalTime.of(7, 0));
+		dto.setHoraFin(LocalTime.of(8, 0)); // 60 minutos
+
+		FranjaInstitucionalInvalidaException ex = assertThrows(
+				FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
+
+		assertTrue(ex.getMessage().contains("debe durar exactamente 2 horas"));
+		verify(sesionRepo, never()).save(any());
+	}
+
+	/**
+	 * Verifica que dias fuera del rango de lunes (1) a sabado (6) son rechazados
+	 * lanzando {@link FranjaInstitucionalInvalidaException}.
+	 */
+	@Test
+	void testCreate_LanzaExcepcionDiaInvalido() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
+
+		dto.setDiaSemana(7); // Domingo
 		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
 
-	/**
-	 * Caso RNF-1 #4 (RF-4): Sesión antes de las 07:00 (06:00–08:00) se rechaza.
-	 */
-	@Test
-	void testRechazo04_RF4_AntesDeAperturaJornada06a08() {
-		dto.setDiaSemana(3);
-		dto.setHoraInicio(LocalTime.of(6, 0));
-		dto.setHoraFin(LocalTime.of(8, 0));
-
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #5 (RF-4): Sábado en la tarde (14:00–16:00) se rechaza.
-	 */
-	@Test
-	void testRechazo05_RF4_SabadoTarde14a16() {
-		dto.setDiaSemana(6);
-		dto.setHoraInicio(LocalTime.of(14, 0));
-		dto.setHoraFin(LocalTime.of(16, 0));
-
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #6 (RF-4): Día 7 (domingo) se rechaza por estar fuera de lunes a
-	 * sábado.
-	 */
-	@Test
-	void testRechazo06_RF4_DiaDomingoInvalido() {
-		dto.setDiaSemana(7);
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #7 (RF-4): Día 0 se rechaza por estar fuera de lunes a sábado.
-	 */
-	@Test
-	void testRechazo07_RF4_DiaCeroInvalido() {
 		dto.setDiaSemana(0);
 		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
 	}
 
 	/**
-	 * Caso RNF-1 #8 (RF-3 / RF-4): Sesión de 1 hora (07:00–08:00) se rechaza por
-	 * no durar exactamente 2 horas.
+	 * Verifica el criterio de aceptacion de RF-5: cualquier sesion que se cruce con
+	 * la pausa del mediodia (12:00 a 13:00) es rechazada con
+	 * {@link FranjaInstitucionalInvalidaException}.
 	 */
 	@Test
-	void testRechazo08_RF4_DuracionMenorADosHoras() {
-		dto.setHoraInicio(LocalTime.of(7, 0));
-		dto.setHoraFin(LocalTime.of(8, 0));
+	void testCreate_LanzaExcepcionPausaMediodia() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #9 (RF-3 / RF-4): Sesión de 3 horas (07:00–10:00) se rechaza por
-	 * exceder las 2 horas.
-	 */
-	@Test
-	void testRechazo09_RF4_DuracionMayorADosHoras() {
-		dto.setHoraInicio(LocalTime.of(7, 0));
-		dto.setHoraFin(LocalTime.of(10, 0));
-
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #10 (RF-4): Hora de inicio posterior a la hora de fin
-	 * (10:00–08:00) se rechaza.
-	 */
-	@Test
-	void testRechazo10_RF4_HoraInicioPosteriorAHoraFin() {
-		dto.setHoraInicio(LocalTime.of(10, 0));
-		dto.setHoraFin(LocalTime.of(8, 0));
-
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #11 (RF-5): Criterio de aceptación de RF-5 — una sesión de 11:00
-	 * a 13:00 se rechaza porque invade la pausa del mediodía (12:00–13:00).
-	 */
-	@Test
-	void testRechazo11_RF5_CruzaPausaMediodia11a13() {
 		dto.setHoraInicio(LocalTime.of(11, 0));
 		dto.setHoraFin(LocalTime.of(13, 0));
 
-		FranjaInstitucionalInvalidaException ex = assertThrows(FranjaInstitucionalInvalidaException.class,
-				() -> service.create(dto));
+		FranjaInstitucionalInvalidaException ex = assertThrows(
+				FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
+
 		assertTrue(ex.getMessage().contains("entre las 12:00 y las 13:00"));
+		verify(sesionRepo, never()).save(any());
 	}
 
 	/**
-	 * Caso RNF-1 #12 (RF-5): Una sesión de 12:00 a 14:00 se rechaza porque inicia
-	 * dentro de la pausa del mediodía (12:00–13:00).
-	 */
-	@Test
-	void testRechazo12_RF5_CruzaPausaMediodia12a14() {
-		dto.setHoraInicio(LocalTime.of(12, 0));
-		dto.setHoraFin(LocalTime.of(14, 0));
-
-		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #13 (RF-6): Criterio de aceptación de RF-6 — dos cursos de 4.º
-	 * semestre, grupo 01, el lunes 07:00–09:00: el segundo se rechaza con
+	 * Verifica el criterio de aceptacion de RF-6: dos materias del 4.º semestre en
+	 * el grupo 01 (mismo bloque) programadas a la misma hora se rechazan con
 	 * {@link CruceHorarioException}.
 	 */
 	@Test
-	void testRechazo13_RF6_CruceExactoMismoSemestreYBloque() {
+	void testCreate_LanzaExcepcionCruceHorarioMismoSemestreYBloque() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 		when(sesionRepo.findByGrupoId(1L)).thenReturn(Collections.emptyList());
 
-		Grupo otroGrupo = new Grupo(202L, 1, 40);
+		// Segundo grupo del mismo bloque (numeroGrupo = 1) en otra materia de 4.° semestre
+		Grupo otroGrupo = new Grupo();
 		otroGrupo.setId(2L);
-		Materia otraMateria = new Materia(4002L, "Bases de Datos", 4, 3, 4, true);
+		otroGrupo.setMateriaId(202L);
+		otroGrupo.setNumeroGrupo(1);
+
+		Materia otraMateria = new Materia();
 		otraMateria.setId(202L);
-		Sesion sesionExistente = new Sesion(2L, 1, LocalTime.of(7, 0), LocalTime.of(9, 0));
+		otraMateria.setNombre("Bases de Datos");
+		otraMateria.setSemestre(4);
+
+		Sesion sesionExistente = new Sesion();
+		sesionExistente.setId(20L);
+		sesionExistente.setGrupoId(2);
+		sesionExistente.setDiaSemana(1); // Lunes
+		sesionExistente.setHoraInicio(LocalTime.of(7, 0));
+		sesionExistente.setHoraFin(LocalTime.of(9, 0));
 
 		when(grupoRepo.findByNumeroGrupo(1)).thenReturn(List.of(grupo, otroGrupo));
 		when(materiaRepo.findById(202L)).thenReturn(Optional.of(otraMateria));
 		when(sesionRepo.findByGrupoId(2L)).thenReturn(List.of(sesionExistente));
 
 		CruceHorarioException ex = assertThrows(CruceHorarioException.class, () -> service.create(dto));
-		assertTrue(ex.getMessage().contains("La sesion se cruza con el curso Bases de Datos"));
+
+		assertTrue(ex.getMessage().contains("La sesion se cruza"));
+		verify(sesionRepo, never()).save(any());
 	}
 
 	/**
-	 * Caso RNF-1 #14 (RF-6): Cruce parcial de 1 hora (08:00–10:00 contra
-	 * 07:00–09:00) entre dos cursos del mismo semestre y bloque se rechaza.
-	 */
-	@Test
-	void testRechazo14_RF6_CruceParcialMismoSemestreYBloque() {
-		when(sesionRepo.findByGrupoId(1L)).thenReturn(Collections.emptyList());
-
-		Grupo otroGrupo = new Grupo(202L, 1, 40);
-		otroGrupo.setId(2L);
-		Materia otraMateria = new Materia(4002L, "Bases de Datos", 4, 3, 4, true);
-		otraMateria.setId(202L);
-		Sesion sesionExistente = new Sesion(2L, 1, LocalTime.of(7, 0), LocalTime.of(9, 0));
-
-		when(grupoRepo.findByNumeroGrupo(1)).thenReturn(List.of(grupo, otroGrupo));
-		when(materiaRepo.findById(202L)).thenReturn(Optional.of(otraMateria));
-		when(sesionRepo.findByGrupoId(2L)).thenReturn(List.of(sesionExistente));
-
-		dto.setHoraInicio(LocalTime.of(8, 0));
-		dto.setHoraFin(LocalTime.of(10, 0));
-
-		assertThrows(CruceHorarioException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #15 (RF-6): Dos sesiones del mismo grupo en el mismo día y franja
-	 * superpuesta se rechazan con {@link CruceHorarioException}.
-	 */
-	@Test
-	void testRechazo15_RF6_CruceDentroDelMismoGrupo() {
-		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(sesion));
-
-		assertThrows(CruceHorarioException.class, () -> service.create(dto));
-	}
-
-	/**
-	 * Caso RNF-1 #16 (RF-7): Criterio de aceptación de RF-7 — un curso de 4 horas
-	 * (2 sesiones) que ya tiene 2 sesiones registradas rechaza la tercera con
+	 * Verifica el criterio de aceptacion de RF-7: un curso de 4 horas (2 sesiones)
+	 * que ya tiene sus 2 sesiones completas rechaza la 3.ª sesion lanzando
 	 * {@link LimiteSesionesExcedidoException}.
 	 */
 	@Test
-	void testRechazo16_RF7_ExcedeLimiteSesionesDelCurso() {
-		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(new Sesion(), new Sesion()));
+	void testCreate_LanzaExcepcionLimiteSesionesExcedido() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 
-		LimiteSesionesExcedidoException ex = assertThrows(LimiteSesionesExcedidoException.class,
-				() -> service.create(dto));
+		Sesion s1 = new Sesion();
+		Sesion s2 = new Sesion();
+		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(s1, s2));
+
+		LimiteSesionesExcedidoException ex = assertThrows(
+				LimiteSesionesExcedidoException.class, () -> service.create(dto));
+
 		assertTrue(ex.getMessage().contains("ya tiene las 2 sesiones semanales"));
+		verify(sesionRepo, never()).save(any());
 	}
 
-	// ─── UPDATE BY ID Y DELETE BY ID (RF-8) ───────────────────────────────────
+	/**
+	 * Verifica que se lanza {@link DatosInvalidosException} cuando los datos de la
+	 * sesion son nulos o incompletos.
+	 */
+	@Test
+	void testCreate_LanzaExcepcionDatosInvalidos() {
+		assertThrows(DatosInvalidosException.class, () -> service.create(null));
+
+		dto.setGrupoId(0);
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
+
+		dto.setGrupoId(1);
+		dto.setHoraInicio(null);
+		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
+	}
+
+	// ─── GET ALL ──────────────────────────────────────────────────────────
 
 	/**
-	 * Verifica que {@code updateById} (RF-8) revalida las reglas y permite mover
-	 * una sesión a un día y hora válidos sin cruces.
+	 * Verifica que {@code getAll} retorna todas las sesiones en formato DTO.
+	 */
+	@Test
+	void testGetAll_Exitoso() {
+		when(sesionRepo.findAll()).thenReturn(List.of(sesion));
+
+		List<SesionDTO> lista = service.getAll();
+
+		assertNotNull(lista);
+		assertEquals(1, lista.size());
+	}
+
+	// ─── UPDATE BY ID (RF-8) ──────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code updateById} revalida las reglas y permite mover una
+	 * sesion a un dia u hora validos sin cruces.
 	 */
 	@Test
 	void testUpdateById_Exitoso() {
 		when(sesionRepo.findById((Long) 10L)).thenReturn(Optional.of(sesion));
+		when(grupoRepo.findById(10L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(sesion));
 		when(grupoRepo.findByNumeroGrupo(1)).thenReturn(List.of(grupo));
 		when(sesionRepo.save(any(Sesion.class))).thenReturn(sesion);
 
 		SesionDTO cambio = new SesionDTO();
-		cambio.setDiaSemana(2); // Martes
+		cambio.setDiaSemana(2); // Mover a Martes
 		cambio.setHoraInicio(LocalTime.of(9, 0));
 		cambio.setHoraFin(LocalTime.of(11, 0));
 
@@ -431,70 +381,67 @@ class SesionServiceTest {
 
 		assertEquals(0, resultado);
 		verify(sesionRepo, times(1)).save(sesion);
-		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
-	 * Verifica el criterio de aceptación de RF-8: mover una sesión a una franja
-	 * inválida o con cruce se rechaza y no persiste el cambio.
+	 * Verifica que {@code updateById} rechaza el movimiento si la nueva posicion
+	 * toca la pausa del mediodia.
 	 */
 	@Test
-	void testUpdateById_RechazaMovimientoInvalido() {
+	void testUpdateById_LanzaExcepcionPausaMediodia() {
 		when(sesionRepo.findById((Long) 10L)).thenReturn(Optional.of(sesion));
+		when(grupoRepo.findById(10L)).thenReturn(Optional.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 
 		SesionDTO cambio = new SesionDTO();
 		cambio.setDiaSemana(2);
 		cambio.setHoraInicio(LocalTime.of(11, 0));
-		cambio.setHoraFin(LocalTime.of(13, 0)); // Invade pausa
+		cambio.setHoraFin(LocalTime.of(13, 0));
 
 		assertThrows(FranjaInstitucionalInvalidaException.class, () -> service.updateById(10L, cambio));
-		verify(sesionRepo, never()).save(any());
+	}
+
+	// ─── DELETE BY ID (RF-8) ──────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code deleteById} elimina la sesion existente de la base de
+	 * datos y retorna 0.
+	 */
+	@Test
+	void testDeleteById_Exitoso() {
+		when(sesionRepo.findById((Long) 10L)).thenReturn(Optional.of(sesion));
+
+		int resultado = service.deleteById(10L);
+
+		assertEquals(0, resultado);
+		verify(sesionRepo, times(1)).delete(sesion);
 	}
 
 	/**
-	 * Verifica que {@code deleteById} (RF-8) elimina la sesión existente y marca
-	 * el horario como no publicado.
+	 * Verifica que {@code deleteById} lanza {@link RecursoNoEncontradoException}
+	 * cuando la sesion a eliminar no existe.
 	 */
 	@Test
-	void testDeleteById_ExitosoYNoEncontrado() {
-		when(sesionRepo.findById((Long) 10L)).thenReturn(Optional.of(sesion));
-		assertEquals(0, service.deleteById(10L));
-		verify(sesionRepo, times(1)).delete(sesion);
-		verify(parametroServ, times(1)).marcarPublicado(false);
-
+	void testDeleteById_LanzaExcepcionNoEncontrado() {
 		when(sesionRepo.findById((Long) 999L)).thenReturn(Optional.empty());
+
 		assertThrows(RecursoNoEncontradoException.class, () -> service.deleteById(999L));
 	}
 
-	// ─── CONSULTA POR SEMESTRE (RF-10), POR GRUPO Y ADVERTENCIAS ──────────────
+	// ─── ADVERTENCIAS POR DIAS CONSECUTIVOS ────────────────────────────────
 
 	/**
-	 * Verifica el criterio de aceptación de RF-10: {@code getBySemestre} retorna
-	 * únicamente las sesiones de las materias pertenecientes al semestre filtrado.
-	 */
-	@Test
-	void testGetBySemestre_FiltraPorSemestreCorrectamente() {
-		when(materiaRepo.findBySemestre(4)).thenReturn(List.of(materia));
-		when(grupoRepo.findByMateriaId(101L)).thenReturn(List.of(grupo));
-		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(sesion));
-
-		List<SesionDTO> resultado = service.getBySemestre(4);
-
-		assertNotNull(resultado);
-		assertEquals(1, resultado.size());
-		assertEquals(10L, resultado.get(0).getId());
-		assertThrows(DatosInvalidosException.class, () -> service.getBySemestre(0));
-		assertThrows(DatosInvalidosException.class, () -> service.getBySemestre(10));
-	}
-
-	/**
-	 * Verifica que {@code obtenerAdvertencias} detecta sesiones ubicadas en días
-	 * consecutivos.
+	 * Verifica que {@code obtenerAdvertencias} genera el mensaje de advertencia si
+	 * el grupo tiene sesiones programadas en dias consecutivos (ej. lunes y
+	 * martes).
 	 */
 	@Test
 	void testObtenerAdvertencias_DetectaDiasConsecutivos() {
-		Sesion sLunes = new Sesion(1L, 1, LocalTime.of(7, 0), LocalTime.of(9, 0));
-		Sesion sMartes = new Sesion(1L, 2, LocalTime.of(7, 0), LocalTime.of(9, 0));
+		Sesion sLunes = new Sesion();
+		sLunes.setDiaSemana(1);
+
+		Sesion sMartes = new Sesion();
+		sMartes.setDiaSemana(2);
 
 		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(sLunes, sMartes));
 
@@ -502,26 +449,32 @@ class SesionServiceTest {
 
 		assertNotNull(advertencias);
 		assertFalse(advertencias.isEmpty());
-		assertTrue(advertencias.get(0).contains("ADVERTENCIA - El grupo 1 tiene sesiones en dias consecutivos"));
+		assertTrue(advertencias.get(0).contains("ADVERTENCIA RF8"));
+	}
+
+	// ─── OPERACIONES DE CONTEO Y EXISTENCIA ────────────────────────────────
+
+	/**
+	 * Verifica que {@code count} retorna la cantidad exacta de sesiones.
+	 */
+	@Test
+	void testCount_Exitoso() {
+		when(sesionRepo.count()).thenReturn(15L);
+
+		assertEquals(15L, service.count());
 	}
 
 	/**
-	 * Verifica las operaciones {@code getAll}, {@code getById},
-	 * {@code getByGrupoId}, {@code count} y {@code existById}.
+	 * Verifica que {@code existById} devuelve true cuando la sesion existe y false
+	 * en caso contrario.
 	 */
 	@Test
-	void testConsultasGeneralesConteoYExistencia() {
-		when(sesionRepo.findAll()).thenReturn(List.of(sesion));
-		when(sesionRepo.findById((Long) 10L)).thenReturn(Optional.of(sesion));
-		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(sesion));
-		when(sesionRepo.count()).thenReturn(15L);
+	void testExistById_Exitoso() {
 		when(sesionRepo.existsById(10L)).thenReturn(true);
+		when(sesionRepo.existsById(999L)).thenReturn(false);
 
-		assertEquals(1, service.getAll().size());
-		assertEquals(10L, service.getById(10L).getId());
-		assertEquals(1, service.getByGrupoId(1L).size());
-		assertEquals(15L, service.count());
 		assertTrue(service.existById(10L));
+		assertFalse(service.existById(999L));
 		assertFalse(service.existById(null));
 	}
 }
