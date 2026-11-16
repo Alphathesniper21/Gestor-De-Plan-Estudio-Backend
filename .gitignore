@@ -35,3 +35,4 @@ bin/
 # Applications
 src/main/resources/application.properties
 src/main/resources/application.yml
+sdgh/src/test/resources/application.properties
