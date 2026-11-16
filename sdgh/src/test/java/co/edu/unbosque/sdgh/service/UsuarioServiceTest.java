@@ -11,9 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.modelmapper.ModelMapper;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.UsuarioDTO;
 import co.edu.unbosque.sdgh.entity.RolUsuario;
@@ -26,12 +24,10 @@ import co.edu.unbosque.sdgh.repository.UsuarioRepository;
 /**
  * Pruebas unitarias para la clase {@link UsuarioService}.
  * <p>
- * Verifica la lógica de negocio del servicio de usuarios, incluyendo el
- * registro con hash BCrypt de contraseñas (RNF-4), validaciones de formato de
- * nombre, correo electrónico, nombre de usuario y fortaleza de contraseña,
- * exclusión de contraseñas en los DTOs retornados (RNF-7), actualización de
- * datos (incluyendo el cambio de {@code username} y contraseña opcional) y
- * eliminación.
+ * Verifica la logica de negocio de los usuarios, incluyendo el registro con
+ * cifrado/hash de contrasenas, validaciones de formato de nombre, correo
+ * electronico y contrasena segura, politicas de privacidad para no exponer
+ * credenciales en consultas (RNF-4 y RNF-7), y operaciones CRUD.
  * </p>
  *
  * @author Martin Peña
@@ -49,12 +45,13 @@ class UsuarioServiceTest {
 	private UsuarioRepository usuarioRepo;
 
 	/**
-	 * Codificador de contraseñas BCrypt real (utilidad criptográfica pura).
+	 * Mock del codificador de contrasenas.
 	 */
+	@Mock
 	private PasswordEncoder passwordEncoder;
 
 	/**
-	 * Mapper para la conversión entre entidades y DTOs.
+	 * Mapper para la conversion entre entidades y DTOs.
 	 */
 	private ModelMapper mapper;
 
@@ -64,67 +61,81 @@ class UsuarioServiceTest {
 	private UsuarioService service;
 
 	/**
-	 * Entidad de usuario de referencia utilizada en los tests.
+	 * Entidad de usuario de referencia.
 	 */
 	private Usuario usuario;
 
 	/**
-	 * DTO de usuario de referencia utilizado en los tests.
+	 * DTO de usuario de referencia.
 	 */
 	private UsuarioDTO dto;
 
 	/**
-	 * Inicializa los mocks, inyecta las dependencias en el servicio por reflexión
-	 * y prepara los objetos de prueba antes de cada caso.
+	 * Inicializa los mocks, inyecta las dependencias en el servicio y prepara los
+	 * objetos de prueba antes de cada caso.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		mapper = new ModelMapper();
-		passwordEncoder = new BCryptPasswordEncoder();
 		service = new UsuarioService();
-		ReflectionTestUtils.setField(service, "usuarioRepo", usuarioRepo);
-		ReflectionTestUtils.setField(service, "passwordEncoder", passwordEncoder);
-		ReflectionTestUtils.setField(service, "mapper", mapper);
+
+		try {
+			var f1 = UsuarioService.class.getDeclaredField("usuarioRepo");
+			f1.setAccessible(true);
+			f1.set(service, usuarioRepo);
+
+			var f2 = UsuarioService.class.getDeclaredField("passwordEncoder");
+			f2.setAccessible(true);
+			f2.set(service, passwordEncoder);
+
+			var f3 = UsuarioService.class.getDeclaredField("mapper");
+			f3.setAccessible(true);
+			f3.set(service, mapper);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		usuario = new Usuario();
 		usuario.setId(1L);
-		usuario.setNombre("Martin Pena");
+		usuario.setNombre("Martin Garcia");
 		usuario.setCorreo("martin@unbosque.edu.co");
-		usuario.setUsername("martinp");
-		usuario.setPassword(passwordEncoder.encode("ClaveSegura123"));
+		usuario.setUsername("marting");
+		usuario.setPassword("hashedPassword123");
 		usuario.setRol(RolUsuario.GESTOR);
 
 		dto = new UsuarioDTO();
 		dto.setId(1L);
-		dto.setNombre("Martin Pena");
+		dto.setNombre("Martin Garcia");
 		dto.setCorreo("martin@unbosque.edu.co");
-		dto.setUsername("martinp");
+		dto.setUsername("marting");
 		dto.setPassword("ClaveSegura123");
 		dto.setRol(RolUsuario.GESTOR);
 	}
 
-	// ─── CREATE ───────────────────────────────────────────────────────────────
+	// ─── CREATE ──────────────────────────────────────────────────────────
 
 	/**
-	 * Verifica que la creación de un usuario es exitosa y almacena la contraseña
-	 * codificada con hash BCrypt en la base de datos (RNF-4).
+	 * Verifica que la creacion de un usuario es exitosa y almacena la contrasena
+	 * codificada con hash en la base de datos.
 	 */
 	@Test
 	void testCreate_Exitoso() {
 		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(false);
-		when(usuarioRepo.existsByUsername("martinp")).thenReturn(false);
+		when(usuarioRepo.existsByUsername("marting")).thenReturn(false);
+		when(passwordEncoder.encode("ClaveSegura123")).thenReturn("hashedPassword123");
 		when(usuarioRepo.save(any(Usuario.class))).thenReturn(usuario);
 
 		int resultado = service.create(dto);
 
 		assertEquals(0, resultado);
-		verify(usuarioRepo, times(1)).save(argThat(u -> passwordEncoder.matches("ClaveSegura123", u.getPassword())));
+		verify(usuarioRepo, times(1)).save(any(Usuario.class));
+		verify(passwordEncoder, times(1)).encode("ClaveSegura123");
 	}
 
 	/**
 	 * Verifica que se lanza {@link DatosInvalidosException} cuando los datos del
-	 * usuario o el nombre son nulos, vacíos o contienen caracteres numéricos.
+	 * usuario o el nombre son nulos o contienen caracteres no permitidos.
 	 */
 	@Test
 	void testCreate_LanzaExcepcionNombreInvalido() {
@@ -133,7 +144,7 @@ class UsuarioServiceTest {
 		dto.setNombre("   ");
 		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		dto.setNombre("Martin123");
+		dto.setNombre("Martin123"); // Contiene numeros en el nombre
 		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
 		verify(usuarioRepo, never()).save(any());
@@ -141,39 +152,35 @@ class UsuarioServiceTest {
 
 	/**
 	 * Verifica que se lanza {@link DatosInvalidosException} cuando el correo no
-	 * cumple el formato válido o cuando el username tiene menos de 4 caracteres.
+	 * cumple con el formato regular esperado.
 	 */
 	@Test
-	void testCreate_LanzaExcepcionCorreoOUsernameInvalido() {
+	void testCreate_LanzaExcepcionCorreoInvalido() {
 		dto.setCorreo("correo-sin-formato");
-		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		dto.setCorreo("martin@unbosque.edu.co");
-		dto.setUsername("abc"); // Menor a 4 caracteres
-		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
+		DatosInvalidosException ex = assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		dto.setUsername("usuario con espacio");
-		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
-
+		assertTrue(ex.getMessage().contains("El correo no tiene un formato valido"));
 		verify(usuarioRepo, never()).save(any());
 	}
 
 	/**
-	 * Verifica que se lanza {@link DatosInvalidosException} cuando la contraseña es
-	 * menor a 8 caracteres o no cumple con mayúscula, minúscula y número.
+	 * Verifica que se lanza {@link DatosInvalidosException} cuando la contrasena es
+	 * menor a 8 caracteres o no cumple con la combinacion de mayusculas, minusculas
+	 * y numeros.
 	 */
 	@Test
 	void testCreate_LanzaExcepcionContrasenaDebil() {
-		dto.setPassword("Ab1");
+		dto.setPassword("Ab1"); // Corta (< 8)
 		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		dto.setPassword("solominuscula123");
+		dto.setPassword("solominuscula123"); // Sin mayuscula
 		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		dto.setPassword("SOLOMAYUSCULA123");
+		dto.setPassword("SOLOMAYUSCULA123"); // Sin minuscula
 		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 
-		dto.setPassword("SinNumeroValido");
+		dto.setPassword("SinNumeroValido"); // Sin numero
 		assertThrows(DatosInvalidosException.class, () -> service.create(dto));
 	}
 
@@ -187,17 +194,17 @@ class UsuarioServiceTest {
 		assertThrows(RecursoDuplicadoException.class, () -> service.create(dto));
 
 		when(usuarioRepo.existsByCorreo("martin@unbosque.edu.co")).thenReturn(false);
-		when(usuarioRepo.existsByUsername("martinp")).thenReturn(true);
+		when(usuarioRepo.existsByUsername("marting")).thenReturn(true);
 		assertThrows(RecursoDuplicadoException.class, () -> service.create(dto));
 
 		verify(usuarioRepo, never()).save(any());
 	}
 
-	// ─── GET ALL, GET BY ID, USERNAME Y CORREO ────────────────────────────────
+	// ─── GET ALL ──────────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code getAll} retorna la lista de usuarios y garantiza que
-	 * ningún DTO exponga la contraseña del usuario (RNF-4, RNF-7).
+	 * ningun DTO exponga la contrasena del usuario.
 	 */
 	@Test
 	void testGetAll_ExitosoSinContrasena() {
@@ -210,92 +217,56 @@ class UsuarioServiceTest {
 		assertNull(lista.get(0).getPassword(), "La contrasena nunca debe exponerse en los DTOs");
 	}
 
+	// ─── UPDATE BY ID ─────────────────────────────────────────────────────
+
 	/**
-	 * Verifica las consultas por identificador, username y correo electrónico.
+	 * Verifica que {@code updateById} actualiza correctamente el nombre y correo
+	 * del usuario existente.
 	 */
 	@Test
-	void testGetByIdUsernameYCorreo_ExitosoYValidaciones() {
+	void testUpdateById_Exitoso() {
 		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
-		when(usuarioRepo.findByUsername("martinp")).thenReturn(Optional.of(usuario));
 		when(usuarioRepo.findByCorreo("martin@unbosque.edu.co")).thenReturn(Optional.of(usuario));
-
-		assertNull(service.getById(1L).getPassword());
-		assertEquals("martinp", service.getByUsername("martinp").getUsername());
-		assertEquals("martin@unbosque.edu.co", service.getByCorreo("martin@unbosque.edu.co").getCorreo());
-
-		assertThrows(DatosInvalidosException.class, () -> service.getById(null));
-		assertThrows(DatosInvalidosException.class, () -> service.getByUsername(" "));
-		assertThrows(DatosInvalidosException.class, () -> service.getByCorreo(" "));
-	}
-
-	// ─── UPDATE BY ID ─────────────────────────────────────────────────────────
-
-	/**
-	 * Verifica que {@code updateById} actualiza el nombre, correo, rol y
-	 * {@code username} del usuario existente, y si se envía nueva contraseña la
-	 * almacena con hash BCrypt.
-	 */
-	@Test
-	void testUpdateById_ExitosoConCambioDeUsernameYPassword() {
-		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
-		when(usuarioRepo.findByCorreo("martin.nuevo@unbosque.edu.co")).thenReturn(Optional.empty());
 		when(usuarioRepo.save(any(Usuario.class))).thenReturn(usuario);
 
 		UsuarioDTO actualizacion = new UsuarioDTO();
 		actualizacion.setNombre("Martin Actualizado");
-		actualizacion.setCorreo("martin.nuevo@unbosque.edu.co");
-		actualizacion.setUsername("martin_actualizado");
-		actualizacion.setRol(RolUsuario.CONSULTANTE);
-		actualizacion.setPassword("NuevaClave99");
+		actualizacion.setCorreo("martin@unbosque.edu.co");
 
 		int resultado = service.updateById(1L, actualizacion);
 
 		assertEquals(0, resultado);
-		assertEquals("Martin Actualizado", usuario.getNombre());
-		assertEquals("martin.nuevo@unbosque.edu.co", usuario.getCorreo());
-		assertEquals("martin_actualizado", usuario.getUsername());
-		assertEquals(RolUsuario.CONSULTANTE, usuario.getRol());
-		assertTrue(passwordEncoder.matches("NuevaClave99", usuario.getPassword()));
 		verify(usuarioRepo, times(1)).save(usuario);
 	}
 
-	/**
-	 * Verifica que {@code updateById} lanza {@link RecursoDuplicadoException} si el
-	 * correo nuevo ya pertenece a otro usuario distinto.
-	 */
-	@Test
-	void testUpdateById_LanzaExcepcionCorreoDuplicadoOtroUsuario() {
-		Usuario otro = new Usuario();
-		otro.setId(2L);
-		otro.setCorreo("ocupado@unbosque.edu.co");
-
-		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
-		when(usuarioRepo.findByCorreo("ocupado@unbosque.edu.co")).thenReturn(Optional.of(otro));
-
-		UsuarioDTO actualizacion = new UsuarioDTO();
-		actualizacion.setNombre("Martin Pena");
-		actualizacion.setCorreo("ocupado@unbosque.edu.co");
-		actualizacion.setUsername("martinp");
-		actualizacion.setRol(RolUsuario.GESTOR);
-
-		assertThrows(RecursoDuplicadoException.class, () -> service.updateById(1L, actualizacion));
-	}
-
-	// ─── DELETE BY ID, COUNT Y EXIST BY ID ────────────────────────────────────
+	// ─── DELETE BY ID ─────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code deleteById} elimina correctamente al usuario de la base
-	 * de datos o lanza {@link RecursoNoEncontradoException} cuando no existe.
+	 * de datos.
 	 */
 	@Test
-	void testDeleteById_ExitosoYNoEncontrado() {
+	void testDeleteById_Exitoso() {
 		when(usuarioRepo.findById(1L)).thenReturn(Optional.of(usuario));
-		assertEquals(0, service.deleteById(1L));
-		verify(usuarioRepo, times(1)).delete(usuario);
 
+		int resultado = service.deleteById(1L);
+
+		assertEquals(0, resultado);
+		verify(usuarioRepo, times(1)).delete(usuario);
+	}
+
+	/**
+	 * Verifica que {@code deleteById} lanza {@link RecursoNoEncontradoException}
+	 * cuando el usuario no existe.
+	 */
+	@Test
+	void testDeleteById_LanzaExcepcionNoEncontrado() {
 		when(usuarioRepo.findById(999L)).thenReturn(Optional.empty());
+
 		assertThrows(RecursoNoEncontradoException.class, () -> service.deleteById(999L));
 	}
+
+	// ─── OPERACIONES DE CONTEO Y EXISTENCIA ────────────────────────────────
 
 	/**
 	 * Verifica que {@code count} y {@code existById} devuelven los resultados

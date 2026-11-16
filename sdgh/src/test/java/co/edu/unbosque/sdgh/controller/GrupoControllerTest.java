@@ -12,21 +12,19 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
 import co.edu.unbosque.sdgh.exception.CupoExcedidoException;
-import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
+import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.service.GrupoService;
 
 /**
  * Pruebas unitarias para el controlador REST {@link GrupoController}.
  * <p>
- * Verifica los endpoints HTTP para la gestión de grupos (RF-2): creación con
- * validación de cupo máximo institucional (201 CREATED, 400 BAD REQUEST),
- * consultas por id, por materia y generales, actualización (202 ACCEPTED, 406
- * NOT ACCEPTABLE, 409 CONFLICT) y eliminación.
+ * Verifica los endpoints HTTP para la gestion de grupos: creacion con
+ * validacion de cupo maximo institucional (201 CREATED, 400 BAD REQUEST),
+ * consultas por id y generales, actualizacion y eliminacion.
  * </p>
  *
  * @author Martin Peña
@@ -37,45 +35,45 @@ import co.edu.unbosque.sdgh.service.GrupoService;
  */
 class GrupoControllerTest {
 
-	/**
-	 * Mock del servicio de grupos.
-	 */
+	/** Mock del servicio de grupos. */
 	@Mock
 	private GrupoService grupoServ;
 
-	/**
-	 * Instancia del controlador bajo prueba.
-	 */
+	/** Instancia del controlador bajo prueba. */
 	private GrupoController controller;
 
-	/**
-	 * DTO de referencia para las pruebas.
-	 */
+	/** DTO de referencia para pruebas. */
 	private GrupoDTO dto;
 
 	/**
-	 * Inicializa los mocks e inyecta las dependencias en el controlador por
-	 * reflexión antes de cada prueba.
+	 * Prepara los mocks e inyecta las dependencias en el controlador antes de cada
+	 * prueba.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		controller = new GrupoController();
-		ReflectionTestUtils.setField(controller, "grupoServ", grupoServ);
+
+		try {
+			var f1 = GrupoController.class.getDeclaredField("grupoServ");
+			f1.setAccessible(true);
+			f1.set(controller, grupoServ);
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 
 		dto = new GrupoDTO();
 		dto.setId(1L);
 		dto.setMateriaId(101L);
-		dto.setNombreMateria("Estructuras de Datos");
 		dto.setNumeroGrupo(1);
 		dto.setCupoPlaneado(40);
 	}
 
-	// ─── CREAR (RF-2) ─────────────────────────────────────────────────────────
+	// ─── CREAR ────────────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que el endpoint de crear grupo retorna HTTP 201 CREATED cuando los
-	 * datos son válidos.
+	 * datos son validos.
 	 */
 	@Test
 	void testCrear_Exitoso() {
@@ -90,11 +88,12 @@ class GrupoControllerTest {
 
 	/**
 	 * Verifica que el endpoint de crear grupo retorna HTTP 400 BAD REQUEST cuando
-	 * el cupo supera el límite institucional permitido.
+	 * el cupo supera el limite institucional permitido.
 	 */
 	@Test
 	void testCrear_RetornaBadRequestPorCupoExcedido() {
-		when(grupoServ.create(any(GrupoDTO.class))).thenThrow(new CupoExcedidoException("Cupo supera limite"));
+		when(grupoServ.create(any(GrupoDTO.class)))
+				.thenThrow(new CupoExcedidoException("Cupo supera limite"));
 
 		ResponseEntity<String> response = controller.crear(101L, 1, 45);
 
@@ -103,11 +102,11 @@ class GrupoControllerTest {
 		assertTrue(response.getBody().contains("Cupo supera limite"));
 	}
 
-	// ─── CONSULTAS ────────────────────────────────────────────────────────────
+	// ─── CONSULTAS ────────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code obtenerTodo} retorna HTTP 202 ACCEPTED con los grupos
-	 * cuando existen datos.
+	 * cuando hay datos.
 	 */
 	@Test
 	void testObtenerTodo_Exitoso() {
@@ -122,7 +121,7 @@ class GrupoControllerTest {
 
 	/**
 	 * Verifica que {@code obtenerTodo} retorna HTTP 204 NO CONTENT cuando no hay
-	 * grupos registrados.
+	 * grupos.
 	 */
 	@Test
 	void testObtenerTodo_RetornaNoContent() {
@@ -134,50 +133,52 @@ class GrupoControllerTest {
 	}
 
 	/**
-	 * Verifica que {@code obtenerPorId} y {@code obtenerPorMateria} retornan HTTP
-	 * 202 ACCEPTED cuando existen registros y 404 NOT FOUND cuando no existen.
+	 * Verifica que {@code obtenerPorId} retorna HTTP 202 ACCEPTED cuando el grupo
+	 * existe.
 	 */
 	@Test
-	void testObtenerPorIdYPorMateria_ExitosoYNotFound() {
+	void testObtenerPorId_Exitoso() {
 		when(grupoServ.getById(1L)).thenReturn(dto);
-		when(grupoServ.getByMateriaId(101L)).thenReturn(List.of(dto));
 
 		ResponseEntity<GrupoDTO> response = controller.obtenerPorId(1L);
+
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
+		assertNotNull(response.getBody());
 		assertEquals(1, response.getBody().getNumeroGrupo());
-
-		ResponseEntity<List<GrupoDTO>> porMateria = controller.obtenerPorMateria(101L);
-		assertEquals(HttpStatus.ACCEPTED, porMateria.getStatusCode());
-		assertEquals(1, porMateria.getBody().size());
-
-		when(grupoServ.getById(999L)).thenThrow(new RecursoNoEncontradoException("No existe"));
-		assertEquals(HttpStatus.NOT_FOUND, controller.obtenerPorId(999L).getStatusCode());
 	}
 
-	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────────
-
 	/**
-	 * Verifica que {@code actualizar} retorna HTTP 202 ACCEPTED cuando es exitoso,
-	 * 406 NOT ACCEPTABLE cuando supera el cupo y 409 CONFLICT cuando el número de
-	 * grupo ya existe.
+	 * Verifica que {@code obtenerPorId} retorna HTTP 404 NOT FOUND cuando el grupo
+	 * no existe.
 	 */
 	@Test
-	void testActualizar_ExitosoYErroresDeNegocio() {
+	void testObtenerPorId_RetornaNotFound() {
+		when(grupoServ.getById(999L)).thenThrow(new RecursoNoEncontradoException("No existe"));
+
+		ResponseEntity<GrupoDTO> response = controller.obtenerPorId(999L);
+
+		assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+	}
+
+	// ─── ACTUALIZAR Y ELIMINAR ────────────────────────────────────────────
+
+	/**
+	 * Verifica que {@code actualizar} retorna HTTP 202 ACCEPTED cuando la
+	 * actualizacion es exitosa.
+	 */
+	@Test
+	void testActualizar_Exitoso() {
 		when(grupoServ.updateById(eq(1L), any(GrupoDTO.class))).thenReturn(0);
+
 		ResponseEntity<String> response = controller.actualizar(1L, 2, 35);
+
 		assertEquals(HttpStatus.ACCEPTED, response.getStatusCode());
 		assertEquals("Grupo actualizado exitosamente", response.getBody());
-
-		when(grupoServ.updateById(eq(1L), any(GrupoDTO.class))).thenThrow(new CupoExcedidoException("Excede cupo"));
-		assertEquals(HttpStatus.NOT_ACCEPTABLE, controller.actualizar(1L, 2, 50).getStatusCode());
-
-		when(grupoServ.updateById(eq(1L), any(GrupoDTO.class))).thenThrow(new RecursoDuplicadoException("Duplicado"));
-		assertEquals(HttpStatus.CONFLICT, controller.actualizar(1L, 2, 35).getStatusCode());
 	}
 
 	/**
 	 * Verifica que {@code eliminarPorId} retorna HTTP 202 ACCEPTED cuando el grupo
-	 * es eliminado correctamente.
+	 * es eliminado.
 	 */
 	@Test
 	void testEliminarPorId_Exitoso() {

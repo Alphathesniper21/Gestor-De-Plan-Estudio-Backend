@@ -266,7 +266,6 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		temp.setNombre(newData.getNombre().trim());
 		temp.setCorreo(correo);
 		temp.setRol(newData.getRol());
-		temp.setUsername(newData.getUsername());
 
 		if (cambiaContrasena) {
 			temp.setPassword(passwordEncoder.encode(newData.getPassword()));
