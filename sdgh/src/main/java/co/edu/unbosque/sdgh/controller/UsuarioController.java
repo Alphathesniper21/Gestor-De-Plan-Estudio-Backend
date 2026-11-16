@@ -244,6 +244,7 @@ public class UsuarioController {
             @RequestParam String nombre,
             @RequestParam String correo,
             @RequestParam RolUsuario rol,
+            @RequestParam String username,
             @RequestParam(required = false) String password) {
 
         try {
@@ -252,6 +253,7 @@ public class UsuarioController {
             nuevo.setNombre(nombre);
             nuevo.setCorreo(correo);
             nuevo.setRol(rol);
+            nuevo.setUsername(username);
             nuevo.setPassword(password);
 
             usuarioServ.updateById(id, nuevo);

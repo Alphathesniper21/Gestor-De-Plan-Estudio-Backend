@@ -11,22 +11,26 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.modelmapper.ModelMapper;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.MateriaDTO;
+import co.edu.unbosque.sdgh.entity.ClaveParametro;
 import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
 import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
+import co.edu.unbosque.sdgh.repository.GrupoRepository;
 import co.edu.unbosque.sdgh.repository.MateriaRepository;
+import co.edu.unbosque.sdgh.repository.SesionRepository;
 
 /**
- * Pruebas unitarias del contrato generico definido por la interfaz
- * {@link CRUDOperation}, verificadas a traves de {@link MateriaService}.
+ * Pruebas unitarias del contrato genérico definido por la interfaz
+ * {@link CRUDOperation}, verificadas a través de {@link MateriaService}.
  * <p>
- * Cubre todos los metodos del contrato generico ({@code create},
- * {@code getAll}, {@code deleteById}, {@code updateById}, {@code count},
- * {@code existById}), garantizando que se cumpla la interfaz comun de servicios
- * en el backend.
+ * Cubre todos los métodos del contrato ({@code create}, {@code getAll},
+ * {@code deleteById}, {@code updateById}, {@code count}, {@code existById}),
+ * incluyendo casos de éxito, validaciones de entrada y lanzamiento de
+ * excepciones de negocio.
  * </p>
  *
  * @author Martin Peña
@@ -37,48 +41,72 @@ import co.edu.unbosque.sdgh.repository.MateriaRepository;
  */
 class CRUDOperationTest {
 
-	/** Mock del repositorio. */
+	/**
+	 * Mock del repositorio de materias.
+	 */
 	@Mock
 	private MateriaRepository materiaRepo;
 
-	/** Mapper para conversion entre entidad y DTO. */
+	/**
+	 * Mock del repositorio de grupos.
+	 */
+	@Mock
+	private GrupoRepository grupoRepo;
+
+	/**
+	 * Mock del repositorio de sesiones.
+	 */
+	@Mock
+	private SesionRepository sesionRepo;
+
+	/**
+	 * Mock del servicio de parámetros configurables.
+	 */
+	@Mock
+	private ParametroService parametroServ;
+
+	/**
+	 * Mapper para la conversión entre entidades y DTOs.
+	 */
 	private ModelMapper mapper;
 
-	/** Instancia del servicio bajo prueba (implementacion de CRUDOperation). */
+	/**
+	 * Instancia del servicio bajo prueba (implementación de {@link CRUDOperation}).
+	 */
 	private CRUDOperation<MateriaDTO> crudService;
 
-	/** Entidad de referencia. */
+	/**
+	 * Entidad de referencia utilizada en los tests.
+	 */
 	private Materia materia;
 
-	/** DTO de referencia. */
+	/**
+	 * DTO de referencia utilizado en los tests.
+	 */
 	private MateriaDTO dto;
 
 	/**
-	 * Prepara los mocks e inicializa el servicio como {@link CRUDOperation} antes
-	 * de cada caso.
+	 * Inicializa los mocks, inyecta las dependencias en el servicio por reflexión
+	 * y prepara los objetos de prueba antes de cada caso.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		mapper = new ModelMapper();
 		MateriaService service = new MateriaService();
+		ReflectionTestUtils.setField(service, "materiaRepo", materiaRepo);
+		ReflectionTestUtils.setField(service, "grupoRepo", grupoRepo);
+		ReflectionTestUtils.setField(service, "sesionRepo", sesionRepo);
+		ReflectionTestUtils.setField(service, "parametroServ", parametroServ);
+		ReflectionTestUtils.setField(service, "mapper", mapper);
 
-		try {
-			var f1 = MateriaService.class.getDeclaredField("materiaRepo");
-			f1.setAccessible(true);
-			f1.set(service, materiaRepo);
-
-			var f2 = MateriaService.class.getDeclaredField("mapper");
-			f2.setAccessible(true);
-			f2.set(service, mapper);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		when(parametroServ.getEntero(ClaveParametro.SESIONES_MAXIMAS)).thenReturn(4);
 
 		crudService = service;
 
 		materia = new Materia();
 		materia.setId(101L);
+		materia.setCodigo(1001L);
 		materia.setNombre("Calculo Diferencial");
 		materia.setSemestre(1);
 		materia.setNcreditos(3);
@@ -87,6 +115,7 @@ class CRUDOperationTest {
 
 		dto = new MateriaDTO();
 		dto.setId(101L);
+		dto.setCodigo(1001L);
 		dto.setNombre("Calculo Diferencial");
 		dto.setSemestre(1);
 		dto.setNcreditos(3);
@@ -94,14 +123,15 @@ class CRUDOperationTest {
 		dto.setCorrelativa(false);
 	}
 
-	// ─── CONTRATO: CREATE ─────────────────────────────────────────────────
+	// ─── CONTRATO: CREATE ─────────────────────────────────────────────────────
 
 	/**
-	 * Verifica que {@code create} retorna 0 cuando la entidad es valida y no esta
+	 * Verifica que {@code create} retorna 0 cuando la entidad es válida y no está
 	 * duplicada.
 	 */
 	@Test
 	void testCreate_Exitoso() {
+		when(materiaRepo.existsByCodigo(1001L)).thenReturn(false);
 		when(materiaRepo.findByNombre("Calculo Diferencial")).thenReturn(Optional.empty());
 		when(materiaRepo.save(any(Materia.class))).thenReturn(materia);
 
@@ -126,12 +156,13 @@ class CRUDOperationTest {
 	 */
 	@Test
 	void testCreate_LanzaExcepcionDuplicado() {
+		when(materiaRepo.existsByCodigo(1001L)).thenReturn(false);
 		when(materiaRepo.findByNombre("Calculo Diferencial")).thenReturn(Optional.of(materia));
 
 		assertThrows(RecursoDuplicadoException.class, () -> crudService.create(dto));
 	}
 
-	// ─── CONTRATO: GET ALL ────────────────────────────────────────────────
+	// ─── CONTRATO: GET ALL ────────────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code getAll} retorna la lista de elementos en formato DTO.
@@ -144,9 +175,24 @@ class CRUDOperationTest {
 
 		assertNotNull(lista);
 		assertEquals(1, lista.size());
+		assertEquals("Calculo Diferencial", lista.get(0).getNombre());
 	}
 
-	// ─── CONTRATO: UPDATE BY ID ───────────────────────────────────────────
+	/**
+	 * Verifica que {@code getAll} retorna una lista vacía cuando no existen
+	 * registros.
+	 */
+	@Test
+	void testGetAll_ListaVacia() {
+		when(materiaRepo.findAll()).thenReturn(Collections.emptyList());
+
+		List<MateriaDTO> lista = crudService.getAll();
+
+		assertNotNull(lista);
+		assertTrue(lista.isEmpty());
+	}
+
+	// ─── CONTRATO: UPDATE BY ID ───────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code updateById} actualiza correctamente el recurso existente
@@ -155,18 +201,21 @@ class CRUDOperationTest {
 	@Test
 	void testUpdateById_Exitoso() {
 		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
+		when(materiaRepo.findByCodigo(1001L)).thenReturn(Optional.of(materia));
 		when(materiaRepo.findByNombre("Calculo Diferencial")).thenReturn(Optional.of(materia));
+		when(grupoRepo.findByMateriaId(101L)).thenReturn(Collections.emptyList());
 		when(materiaRepo.save(any(Materia.class))).thenReturn(materia);
 
 		int resultado = crudService.updateById(101L, dto);
 
 		assertEquals(0, resultado);
 		verify(materiaRepo, times(1)).save(materia);
+		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
 	 * Verifica que {@code updateById} lanza {@link RecursoNoEncontradoException} si
-	 * el id no existe.
+	 * el identificador no existe.
 	 */
 	@Test
 	void testUpdateById_LanzaExcepcionNoEncontrado() {
@@ -175,19 +224,21 @@ class CRUDOperationTest {
 		assertThrows(RecursoNoEncontradoException.class, () -> crudService.updateById(999L, dto));
 	}
 
-	// ─── CONTRATO: DELETE BY ID ───────────────────────────────────────────
+	// ─── CONTRATO: DELETE BY ID ───────────────────────────────────────────────
 
 	/**
 	 * Verifica que {@code deleteById} elimina el recurso existente y retorna 0.
 	 */
 	@Test
 	void testDeleteById_Exitoso() {
+		when(grupoRepo.findByMateriaId(101L)).thenReturn(Collections.emptyList());
 		when(materiaRepo.findById(101L)).thenReturn(Optional.of(materia));
 
 		int resultado = crudService.deleteById(101L);
 
 		assertEquals(0, resultado);
 		verify(materiaRepo, times(1)).delete(materia);
+		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
@@ -196,12 +247,13 @@ class CRUDOperationTest {
 	 */
 	@Test
 	void testDeleteById_LanzaExcepcionNoEncontrado() {
+		when(grupoRepo.findByMateriaId(999L)).thenReturn(Collections.emptyList());
 		when(materiaRepo.findById(999L)).thenReturn(Optional.empty());
 
 		assertThrows(RecursoNoEncontradoException.class, () -> crudService.deleteById(999L));
 	}
 
-	// ─── CONTRATO: COUNT Y EXIST BY ID ────────────────────────────────────
+	// ─── CONTRATO: COUNT Y EXIST BY ID ────────────────────────────────────────
 
 	/**
 	 * Verifica las operaciones del contrato {@code count} y {@code existById}.

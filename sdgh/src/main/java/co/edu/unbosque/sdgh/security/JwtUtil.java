@@ -35,9 +35,10 @@ public class JwtUtil {
 
     /**
      * Tiempo de validez de un token JWT expresado en milisegundos.
-     * Corresponde a una duración de 24 horas.
+     * Corresponde a una duración de 60 minutos.
      */
-    private static final long JWT_TOKEN_VALIDITY = 24 * 60 * 60 * 1000;
+	@Value("${jwt.access-token-expiration-ms:3600000}")
+	private long jwtTokenValidity;
 
     /**
      * Clave secreta utilizada para firmar y verificar los tokens JWT.
@@ -160,7 +161,7 @@ public class JwtUtil {
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder().setClaims(claims).setSubject(subject)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + JWT_TOKEN_VALIDITY))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtTokenValidity))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256).compact();
     }
 
