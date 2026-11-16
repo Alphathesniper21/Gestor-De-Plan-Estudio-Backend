@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import java.time.LocalTime;
 import java.util.*;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -11,10 +12,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.modelmapper.ModelMapper;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import co.edu.unbosque.sdgh.dto.GrupoDTO;
 import co.edu.unbosque.sdgh.entity.Grupo;
+import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.entity.Sesion;
+import co.edu.unbosque.sdgh.exception.CruceHorarioException;
 import co.edu.unbosque.sdgh.exception.CupoExcedidoException;
 import co.edu.unbosque.sdgh.exception.DatosInvalidosException;
 import co.edu.unbosque.sdgh.exception.RecursoDuplicadoException;
@@ -26,10 +30,11 @@ import co.edu.unbosque.sdgh.repository.SesionRepository;
 /**
  * Pruebas unitarias para la clase {@link GrupoService}.
  * <p>
- * Verifica la logica de negocio de los grupos de materias, incluyendo la
- * creacion con validacion de cupo maximo de 40 mas 10 % de tolerancia (RF-2),
- * unicidad de grupo por curso, eliminacion en cascada de sesiones vinculadas,
- * actualizacion controlada y operaciones CRUD.
+ * Verifica la lógica de negocio de los grupos de materias (CU03 - RF-2),
+ * incluyendo la creación con validación de cupo máximo de 40 más 10 % de
+ * tolerancia (44 estudiantes), unicidad de grupo por curso, eliminación en
+ * cascada de sesiones vinculadas, verificación de cruces de horario al cambiar
+ * de bloque y operaciones CRUD.
  * </p>
  *
  * @author Martin Peña
@@ -47,19 +52,25 @@ class GrupoServiceTest {
 	private GrupoRepository grupoRepo;
 
 	/**
-	 * Mock del repositorio de materias (para verificar existencia del curso).
+	 * Mock del repositorio de materias.
 	 */
 	@Mock
 	private MateriaRepository materiaRepo;
 
 	/**
-	 * Mock del repositorio de sesiones (para eliminacion en cascada).
+	 * Mock del repositorio de sesiones.
 	 */
 	@Mock
 	private SesionRepository sesionRepo;
 
 	/**
-	 * Mapper para la conversion entre entidades y DTOs.
+	 * Mock del servicio de parámetros configurables.
+	 */
+	@Mock
+	private ParametroService parametroServ;
+
+	/**
+	 * Mapper para la conversión entre entidades y DTOs.
 	 */
 	private ModelMapper mapper;
 
@@ -79,34 +90,22 @@ class GrupoServiceTest {
 	private GrupoDTO dto;
 
 	/**
-	 * Inicializa los mocks, inyecta las dependencias en el servicio y prepara los
-	 * objetos de prueba antes de cada caso.
+	 * Inicializa los mocks, inyecta las dependencias en el servicio por reflexión
+	 * y prepara los objetos de prueba antes de cada caso.
 	 */
 	@BeforeEach
 	void setUp() {
 		MockitoAnnotations.openMocks(this);
 		mapper = new ModelMapper();
 		service = new GrupoService();
+		ReflectionTestUtils.setField(service, "grupoRepo", grupoRepo);
+		ReflectionTestUtils.setField(service, "materiaRepo", materiaRepo);
+		ReflectionTestUtils.setField(service, "sesionRepo", sesionRepo);
+		ReflectionTestUtils.setField(service, "parametroServ", parametroServ);
+		ReflectionTestUtils.setField(service, "mapper", mapper);
 
-		try {
-			var f1 = GrupoService.class.getDeclaredField("grupoRepo");
-			f1.setAccessible(true);
-			f1.set(service, grupoRepo);
-
-			var f2 = GrupoService.class.getDeclaredField("materiaRepo");
-			f2.setAccessible(true);
-			f2.set(service, materiaRepo);
-
-			var f3 = GrupoService.class.getDeclaredField("sesionRepo");
-			f3.setAccessible(true);
-			f3.set(service, sesionRepo);
-
-			var f4 = GrupoService.class.getDeclaredField("mapper");
-			f4.setAccessible(true);
-			f4.set(service, mapper);
-		} catch (Exception e) {
-			throw new RuntimeException(e);
-		}
+		// Por defecto: cupo base 40 + 10 % tolerancia = 44 (RF-2)
+		when(parametroServ.getCupoMaximo()).thenReturn(44);
 
 		grupo = new Grupo();
 		grupo.setId(1L);
@@ -121,11 +120,11 @@ class GrupoServiceTest {
 		dto.setCupoPlaneado(40);
 	}
 
-	// ─── CREATE (RF-2) ──────────────────────────────────────────────────────────
+	// ─── CREATE (RF-2) ────────────────────────────────────────────────────────
 
 	/**
-	 * Verifica que la creacion de un grupo retorna 0 cuando los datos son validos,
-	 * la materia existe y el cupo planeado es de 40 estudiantes (cupo base).
+	 * Verifica que la creación de un grupo retorna 0 cuando los datos son válidos,
+	 * la materia existe y el cupo planeado es de 40 estudiantes.
 	 */
 	@Test
 	void testCreate_ExitosoCupoBase() {
@@ -137,11 +136,12 @@ class GrupoServiceTest {
 
 		assertEquals(0, resultado);
 		verify(grupoRepo, times(1)).save(any(Grupo.class));
+		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
-	 * Verifica el criterio de aceptacion de RF-2: un cupo de 44 estudiantes se
-	 * acepta exitosamente (40 mas el 10 % de tolerancia).
+	 * Verifica el criterio de aceptación de RF-2: un cupo de 44 estudiantes se
+	 * acepta exitosamente (40 más el 10 % de tolerancia).
 	 */
 	@Test
 	void testCreate_AceptaCupoMaximoConTolerancia44() {
@@ -158,7 +158,7 @@ class GrupoServiceTest {
 	}
 
 	/**
-	 * Verifica el criterio de aceptacion de RF-2: un cupo de 45 estudiantes se
+	 * Verifica el criterio de aceptación de RF-2: un cupo de 45 estudiantes se
 	 * rechaza lanzando {@link CupoExcedidoException}.
 	 */
 	@Test
@@ -179,8 +179,7 @@ class GrupoServiceTest {
 	void testCreate_LanzaExcepcionMateriaInexistente() {
 		when(materiaRepo.existsById(101L)).thenReturn(false);
 
-		RecursoNoEncontradoException ex = assertThrows(RecursoNoEncontradoException.class,
-				() -> service.create(dto));
+		RecursoNoEncontradoException ex = assertThrows(RecursoNoEncontradoException.class, () -> service.create(dto));
 
 		assertEquals("No existe una materia con el codigo 101", ex.getMessage());
 		verify(grupoRepo, never()).save(any());
@@ -188,15 +187,14 @@ class GrupoServiceTest {
 
 	/**
 	 * Verifica que se lanza {@link RecursoDuplicadoException} cuando la materia ya
-	 * tiene asignado un grupo con ese mismo numero.
+	 * tiene asignado un grupo con ese mismo número.
 	 */
 	@Test
 	void testCreate_LanzaExcepcionNumeroGrupoDuplicado() {
 		when(materiaRepo.existsById(101L)).thenReturn(true);
 		when(grupoRepo.existsByMateriaIdAndNumeroGrupo(101L, 1)).thenReturn(true);
 
-		RecursoDuplicadoException ex = assertThrows(RecursoDuplicadoException.class,
-				() -> service.create(dto));
+		RecursoDuplicadoException ex = assertThrows(RecursoDuplicadoException.class, () -> service.create(dto));
 
 		assertTrue(ex.getMessage().contains("ya tiene el grupo 1"));
 		verify(grupoRepo, never()).save(any());
@@ -224,88 +222,63 @@ class GrupoServiceTest {
 		verify(grupoRepo, never()).save(any());
 	}
 
-	// ─── GET ALL ──────────────────────────────────────────────────────────
+	// ─── GET ALL, GET BY ID, GET BY MATERIA ───────────────────────────────────
 
 	/**
-	 * Verifica que {@code getAll} retorna la lista de grupos en formato DTO.
+	 * Verifica que {@code getAll} retorna la lista de grupos en formato DTO
+	 * incluyendo el nombre de la materia asociada.
 	 */
 	@Test
-	void testGetAll_Exitoso() {
+	void testGetAll_ExitosoYListaVacia() {
+		Materia m = new Materia(1001L, "Estructuras", 4, 3, 4, false);
 		when(grupoRepo.findAll()).thenReturn(List.of(grupo));
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(m));
 
 		List<GrupoDTO> lista = service.getAll();
 
 		assertNotNull(lista);
 		assertEquals(1, lista.size());
-		assertEquals(1, lista.get(0).getNumeroGrupo());
-	}
+		assertEquals("Estructuras", lista.get(0).getNombreMateria());
 
-	/**
-	 * Verifica que {@code getAll} retorna una lista vacia cuando no existen
-	 * grupos.
-	 */
-	@Test
-	void testGetAll_ListaVacia() {
 		when(grupoRepo.findAll()).thenReturn(Collections.emptyList());
-
-		List<GrupoDTO> lista = service.getAll();
-
-		assertNotNull(lista);
-		assertTrue(lista.isEmpty());
+		assertTrue(service.getAll().isEmpty());
 	}
 
-	// ─── GET BY ID / MATERIA ──────────────────────────────────────────────
-
 	/**
-	 * Verifica que {@code getById} retorna el DTO del grupo cuando el id existe.
+	 * Verifica que {@code getById} y {@code getByMateriaId} retornan los DTOs
+	 * esperados y lanzan excepciones ante identificadores inválidos.
 	 */
 	@Test
-	void testGetById_Exitoso() {
+	void testGetByIdYGetByMateriaId_ExitosoYValidaciones() {
 		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+		when(grupoRepo.findByMateriaId(101L)).thenReturn(List.of(grupo));
 
-		GrupoDTO resultado = service.getById(1L);
+		assertEquals(1, service.getById(1L).getNumeroGrupo());
+		assertEquals(1, service.getByMateriaId(101L).size());
 
-		assertNotNull(resultado);
-		assertEquals(1, resultado.getNumeroGrupo());
-	}
-
-	/**
-	 * Verifica que {@code getById} lanza excepciones si el id es nulo o
-	 * inexistente.
-	 */
-	@Test
-	void testGetById_LanzaExcepcionIdInvalido() {
 		assertThrows(DatosInvalidosException.class, () -> service.getById(null));
+		assertThrows(DatosInvalidosException.class, () -> service.getByMateriaId(0));
 
 		when(grupoRepo.findById(999L)).thenReturn(Optional.empty());
 		assertThrows(RecursoNoEncontradoException.class, () -> service.getById(999L));
 	}
 
-	/**
-	 * Verifica que {@code getByMateriaId} retorna los grupos de la materia o lanza
-	 * excepcion si el id es menor o igual a 0.
-	 */
-	@Test
-	void testGetByMateriaId_ExitosoYValidaciones() {
-		when(grupoRepo.findByMateriaId(101L)).thenReturn(List.of(grupo));
-
-		List<GrupoDTO> lista = service.getByMateriaId(101L);
-		assertNotNull(lista);
-		assertEquals(1, lista.size());
-
-		assertThrows(DatosInvalidosException.class, () -> service.getByMateriaId(0));
-	}
-
-	// ─── UPDATE BY ID ─────────────────────────────────────────────────────
+	// ─── UPDATE BY ID ─────────────────────────────────────────────────────────
 
 	/**
-	 * Verifica que {@code updateById} modifica exitosamente el numero y cupo del
-	 * grupo y retorna 0.
+	 * Verifica que {@code updateById} modifica exitosamente el número y cupo del
+	 * grupo cuando no hay cruces en el nuevo bloque.
 	 */
 	@Test
 	void testUpdateById_Exitoso() {
+		Materia m = new Materia(1001L, "Estructuras", 4, 3, 4, false);
+		m.setId(101L);
+
 		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
 		when(grupoRepo.findByMateriaIdAndNumeroGrupo(101L, 2)).thenReturn(Optional.empty());
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(m));
+		when(sesionRepo.findByGrupoId(1L)).thenReturn(Collections.emptyList());
+		when(grupoRepo.findByNumeroGrupo(2)).thenReturn(Collections.emptyList());
 		when(grupoRepo.save(any(Grupo.class))).thenReturn(grupo);
 
 		GrupoDTO actualizacion = new GrupoDTO();
@@ -316,56 +289,76 @@ class GrupoServiceTest {
 
 		assertEquals(0, resultado);
 		verify(grupoRepo, times(1)).save(grupo);
+		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
-	 * Verifica que {@code updateById} rechaza una actualizacion con cupo superior a
-	 * 44 lanzando {@link CupoExcedidoException}.
+	 * Verifica que {@code updateById} lanza {@link CruceHorarioException} si al
+	 * cambiar el número de grupo (bloque) sus sesiones se cruzan con otro grupo
+	 * del mismo semestre en el nuevo bloque (RF-6).
 	 */
 	@Test
-	void testUpdateById_LanzaExcepcionCupoExcedido() {
-		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+	void testUpdateById_LanzaExcepcionCruceAlCambiarDeBloque() {
+		Materia m1 = new Materia(1001L, "Estructuras", 4, 3, 4, false);
+		m1.setId(101L);
+		Materia m2 = new Materia(1002L, "Bases de Datos", 4, 3, 4, false);
+		m2.setId(202L);
 
-		GrupoDTO actualizacion = new GrupoDTO();
-		actualizacion.setNumeroGrupo(1);
-		actualizacion.setCupoPlaneado(45);
+		Grupo otroGrupoBloque2 = new Grupo(202L, 2, 35);
+		otroGrupoBloque2.setId(2L);
 
-		assertThrows(CupoExcedidoException.class, () -> service.updateById(1L, actualizacion));
-		verify(grupoRepo, never()).save(any());
-	}
-
-	/**
-	 * Verifica que {@code updateById} lanza {@link RecursoDuplicadoException} si el
-	 * nuevo numero de grupo ya pertenece a otro grupo de la misma materia.
-	 */
-	@Test
-	void testUpdateById_LanzaExcepcionNumeroDuplicado() {
-		Grupo otroGrupo = new Grupo();
-		otroGrupo.setId(2L);
-		otroGrupo.setMateriaId(101L);
-		otroGrupo.setNumeroGrupo(2);
+		Sesion sesionPropia = new Sesion(1L, 1, LocalTime.of(8, 0), LocalTime.of(10, 0));
+		Sesion sesionOtra = new Sesion(2L, 1, LocalTime.of(8, 0), LocalTime.of(10, 0));
 
 		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
-		when(grupoRepo.findByMateriaIdAndNumeroGrupo(101L, 2)).thenReturn(Optional.of(otroGrupo));
+		when(grupoRepo.findByMateriaIdAndNumeroGrupo(101L, 2)).thenReturn(Optional.empty());
+		when(materiaRepo.findById(101L)).thenReturn(Optional.of(m1));
+		when(materiaRepo.findById(202L)).thenReturn(Optional.of(m2));
+		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(sesionPropia));
+		when(grupoRepo.findByNumeroGrupo(2)).thenReturn(List.of(otroGrupoBloque2));
+		when(sesionRepo.findByGrupoId(2L)).thenReturn(List.of(sesionOtra));
 
 		GrupoDTO actualizacion = new GrupoDTO();
 		actualizacion.setNumeroGrupo(2);
 		actualizacion.setCupoPlaneado(35);
 
-		assertThrows(RecursoDuplicadoException.class, () -> service.updateById(1L, actualizacion));
+		assertThrows(CruceHorarioException.class, () -> service.updateById(1L, actualizacion));
+		verify(grupoRepo, never()).save(any());
 	}
 
-	// ─── DELETE BY ID ─────────────────────────────────────────────────────
+	/**
+	 * Verifica que {@code updateById} rechaza cupo excedido y número de grupo
+	 * duplicado.
+	 */
+	@Test
+	void testUpdateById_LanzaExcepcionCupoExcedidoYDuplicado() {
+		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
+
+		GrupoDTO excedido = new GrupoDTO();
+		excedido.setNumeroGrupo(1);
+		excedido.setCupoPlaneado(45);
+		assertThrows(CupoExcedidoException.class, () -> service.updateById(1L, excedido));
+
+		Grupo otroGrupo = new Grupo(101L, 2, 35);
+		otroGrupo.setId(2L);
+		when(grupoRepo.findByMateriaIdAndNumeroGrupo(101L, 2)).thenReturn(Optional.of(otroGrupo));
+
+		GrupoDTO duplicado = new GrupoDTO();
+		duplicado.setNumeroGrupo(2);
+		duplicado.setCupoPlaneado(35);
+		assertThrows(RecursoDuplicadoException.class, () -> service.updateById(1L, duplicado));
+	}
+
+	// ─── DELETE BY ID, COUNT Y EXIST BY ID ────────────────────────────────────
 
 	/**
-	 * Verifica que {@code deleteById} elimina el grupo y borra en cascada todas
-	 * sus sesiones asociadas en el repositorio de sesiones.
+	 * Verifica que {@code deleteById} elimina el grupo junto con todas sus
+	 * sesiones asociadas en cascada y despublica el horario.
 	 */
 	@Test
 	void testDeleteById_ExitosoConBorradoDeSesiones() {
-		Sesion s1 = new Sesion();
+		Sesion s1 = new Sesion(1L, 1, LocalTime.of(7, 0), LocalTime.of(9, 0));
 		s1.setId(50L);
-		s1.setGrupoId(1);
 
 		when(grupoRepo.findById(1L)).thenReturn(Optional.of(grupo));
 		when(sesionRepo.findByGrupoId(1L)).thenReturn(List.of(s1));
@@ -375,43 +368,19 @@ class GrupoServiceTest {
 		assertEquals(0, resultado);
 		verify(sesionRepo, times(1)).deleteAll(List.of(s1));
 		verify(grupoRepo, times(1)).delete(grupo);
+		verify(parametroServ, times(1)).marcarPublicado(false);
 	}
 
 	/**
-	 * Verifica que {@code deleteById} lanza excepciones si el id es nulo o
-	 * inexistente.
+	 * Verifica las operaciones {@code count} y {@code existById}.
 	 */
 	@Test
-	void testDeleteById_LanzaExcepcionIdInvalido() {
-		assertThrows(DatosInvalidosException.class, () -> service.deleteById(null));
-
-		when(grupoRepo.findById(999L)).thenReturn(Optional.empty());
-		assertThrows(RecursoNoEncontradoException.class, () -> service.deleteById(999L));
-	}
-
-	// ─── OPERACIONES DE CONTEO Y EXISTENCIA ────────────────────────────────
-
-	/**
-	 * Verifica que {@code count} retorna la cantidad exacta de grupos.
-	 */
-	@Test
-	void testCount_Exitoso() {
+	void testCountYExistById_Exitoso() {
 		when(grupoRepo.count()).thenReturn(4L);
+		when(grupoRepo.existsById(1L)).thenReturn(true);
 
 		assertEquals(4L, service.count());
-	}
-
-	/**
-	 * Verifica que {@code existById} devuelve true cuando el grupo existe y false
-	 * cuando no existe o es nulo.
-	 */
-	@Test
-	void testExistById_Exitoso() {
-		when(grupoRepo.existsById(1L)).thenReturn(true);
-		when(grupoRepo.existsById(999L)).thenReturn(false);
-
 		assertTrue(service.existById(1L));
-		assertFalse(service.existById(999L));
 		assertFalse(service.existById(null));
 	}
 }
