@@ -2,32 +2,66 @@ package co.edu.unbosque.sdgh.dto;
 
 import java.util.Objects;
 
+/**
+ * DTO que transporta los datos de un grupo de una materia (curso).
+ * <p>
+ * Cada grupo pertenece a una materia, se identifica por su número dentro de
+ * ella (lo que define el bloque 01, 02...) y tiene un cupo planeado limitado
+ * a 40 estudiantes más un 10 % de tolerancia (RF2). Incluye el nombre de la
+ * materia para evitar consultas adicionales en el cliente.
+ * </p>
+ *
+ * @author Laura Gomez
+ * @version 1.0
+ * @since 1.0
+ * @see MateriaDTO
+ * @see SesionDTO
+ */
 public class GrupoDTO {
 
+	/**
+	 * Identificador único del grupo.
+	 */
 	private Long id;
 
 	/**
-	 * Codigo de la materia (curso) a la que pertenece el grupo.
+	 * Código de la materia (curso) a la que pertenece el grupo.
 	 */
 	private long materiaId;
 
 	/**
-	 * Numero del grupo dentro del curso. Define el bloque (01, 02...).
+	 * Nombre de la materia (curso) a la que pertenece el grupo.
+	 */
+	private String nombreMateria;
+
+	/**
+	 * Número del grupo dentro del curso. Define el bloque (01, 02...).
 	 */
 	private int numeroGrupo;
 
 	/**
-	 * Cupo planeado del grupo. Maximo 40 mas 10 % de tolerancia (RF2).
+	 * Cupo planeado del grupo. Máximo 40 más 10 % de tolerancia (RF2).
 	 */
 	private int cupoPlaneado;
-	
+
+	/**
+	 * Constructor vacío requerido para la deserialización y el mapeo de datos.
+	 */
 	public GrupoDTO() {
-		// TODO Auto-generated constructor stub
 	}
 
-	public GrupoDTO(long materiaId, int numeroGrupo, int cupoPlaneado) {
+	/**
+	 * Construye un grupo con los datos necesarios para su creación.
+	 *
+	 * @param materiaId     código de la materia a la que pertenece el grupo
+	 * @param nombreMateria nombre de la materia a la que pertenece el grupo
+	 * @param numeroGrupo   número del grupo dentro del curso
+	 * @param cupoPlaneado  cupo planeado del grupo
+	 */
+	public GrupoDTO(long materiaId, String nombreMateria, int numeroGrupo, int cupoPlaneado) {
 		super();
 		this.materiaId = materiaId;
+		this.nombreMateria = nombreMateria;
 		this.numeroGrupo = numeroGrupo;
 		this.cupoPlaneado = cupoPlaneado;
 	}
@@ -48,6 +82,14 @@ public class GrupoDTO {
 		this.materiaId = materiaId;
 	}
 
+	public String getNombreMateria() {
+		return nombreMateria;
+	}
+
+	public void setNombreMateria(String nombreMateria) {
+		this.nombreMateria = nombreMateria;
+	}
+
 	public int getNumeroGrupo() {
 		return numeroGrupo;
 	}
@@ -64,17 +106,34 @@ public class GrupoDTO {
 		this.cupoPlaneado = cupoPlaneado;
 	}
 
+	/**
+	 * Representación en texto del grupo con todos sus atributos.
+	 *
+	 * @return cadena descriptiva del grupo
+	 */
 	@Override
 	public String toString() {
-		return "GrupoDTO [id=" + id + ", materiaId=" + materiaId + ", numeroGrupo=" + numeroGrupo + ", cupoPlaneado="
-				+ cupoPlaneado + "]";
+		return "GrupoDTO [id=" + id + ", materiaId=" + materiaId + ", nombreMateria=" + nombreMateria + ", numeroGrupo="
+				+ numeroGrupo + ", cupoPlaneado=" + cupoPlaneado + "]";
 	}
 
+	/**
+	 * Calcula el código hash a partir de todos los atributos del grupo.
+	 *
+	 * @return código hash del objeto
+	 */
 	@Override
 	public int hashCode() {
-		return Objects.hash(Integer.valueOf(cupoPlaneado), id, Long.valueOf(materiaId), Integer.valueOf(numeroGrupo));
+		return Objects.hash(Integer.valueOf(cupoPlaneado), id, Long.valueOf(materiaId), nombreMateria,
+				Integer.valueOf(numeroGrupo));
 	}
 
+	/**
+	 * Compara este grupo con otro objeto atributo por atributo.
+	 *
+	 * @param obj objeto a comparar
+	 * @return {@code true} si ambos son {@link GrupoDTO} con los mismos valores
+	 */
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)
@@ -85,7 +144,7 @@ public class GrupoDTO {
 			return false;
 		GrupoDTO other = (GrupoDTO) obj;
 		return cupoPlaneado == other.cupoPlaneado && Objects.equals(id, other.id) && materiaId == other.materiaId
-				&& numeroGrupo == other.numeroGrupo;
+				&& Objects.equals(nombreMateria, other.nombreMateria) && numeroGrupo == other.numeroGrupo;
 	}
 
 }

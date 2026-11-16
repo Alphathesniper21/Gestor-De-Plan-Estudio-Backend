@@ -13,40 +13,56 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
- * Clase de utilidad para operaciones de cifrado AES y funciones de hash.
+ * Clase de utilidad que proporciona operaciones de cifrado y descifrado
+ * mediante el algoritmo AES en modo GCM, además de funciones para generar
+ * hashes utilizando diferentes algoritmos criptográficos.
  *
- * Cifra y descifra texto usando AES en modo GCM. La clave no esta en el
- * codigo: se lee de la variable de entorno AES_KEY (o de la propiedad del
- * sistema aes.key) y debe tener exactamente 16, 24 o 32 caracteres. Cada
- * cifrado genera un IV aleatorio de 12 bytes que se antepone al texto
- * cifrado, por lo que el resultado cambia en cada llamada.
+ * La clave de cifrado se obtiene desde la variable de entorno AES_KEY o desde
+ * la propiedad del sistema aes.key. Debe tener una longitud de 16, 24 o 32
+ * bytes. Cada operación de cifrado genera un vector de inicialización (IV)
+ * aleatorio de 12 bytes, que se almacena junto con el contenido cifrado.
  *
- * Tambien genera hashes (MD5, SHA-1, SHA-256, SHA-384, SHA-512).
- * Utiliza unicamente APIs nativas de Java, sin dependencias externas.
+ * También permite generar hashes mediante los algoritmos MD5, SHA-1, SHA-256,
+ * SHA-384 y SHA-512. Utiliza únicamente las APIs nativas de Java.
+ *
+ * @author Sebastian Toyo
  */
 public class AESUtil {
 
-	/** Algoritmo de cifrado simetrico utilizado. */
+	/**
+	 * Nombre del algoritmo de cifrado simétrico utilizado.
+	 */
 	private static final String ALGORITMO = "AES";
 
-	/** Transformacion completa: algoritmo / modo / padding. */
+	/**
+	 * Transformación de cifrado que especifica el algoritmo AES, el modo GCM
+	 * y la ausencia de padding.
+	 */
 	private static final String TIPO_CIFRADO = "AES/GCM/NoPadding";
 
-	/** Longitud del tag de autenticacion GCM en bits. */
+	/**
+	 * Longitud del código de autenticación GCM expresada en bits.
+	 */
 	private static final int GCM_TAG_LENGTH = 128;
 
-	/** Longitud del IV en bytes (recomendado para GCM). */
+	/**
+	 * Longitud del vector de inicialización (IV) expresada en bytes.
+	 */
 	private static final int IV_LENGTH = 12;
 
-	/** Generador de numeros aleatorios seguro para los IV. */
+	/**
+	 * Generador de números aleatorios seguro utilizado para crear los vectores
+	 * de inicialización durante las operaciones de cifrado.
+	 */
 	private static final SecureRandom RANDOM = new SecureRandom();
 
 	/**
-	 * Obtiene la clave desde la variable de entorno AES_KEY o, si no existe,
-	 * desde la propiedad del sistema aes.key.
+	 * Obtiene la clave de cifrado desde la variable de entorno AES_KEY. Si esta
+	 * no está configurada, intenta obtenerla desde la propiedad del sistema
+	 * aes.key.
 	 *
-	 * @return Clave de cifrado.
-	 * @throws IllegalStateException si la clave no esta configurada.
+	 * @return Clave de cifrado configurada.
+	 * @throws IllegalStateException si la clave no está configurada.
 	 */
 	private static String obtenerLlave() {
 		String llave = System.getenv("AES_KEY");
@@ -60,11 +76,14 @@ public class AESUtil {
 	}
 
 	/**
-	 * Cifra un texto con AES/GCM usando la clave configurada.
+	 * Cifra un texto utilizando el algoritmo AES en modo GCM y la clave
+	 * configurada. Genera un vector de inicialización aleatorio y lo concatena
+	 * con el contenido cifrado antes de codificar el resultado en Base64.
 	 *
-	 * @param texto Texto plano a cifrar.
-	 * @return Base64 de (IV + texto cifrado).
-	 * @throws IllegalStateException si falla el cifrado o la clave es invalida.
+	 * @param texto Texto plano que se desea cifrar.
+	 * @return Cadena codificada en Base64 que contiene el IV y el texto cifrado.
+	 * @throws IllegalStateException si ocurre un error durante el cifrado o
+	 *         la clave configurada no es válida.
 	 */
 	public static String encrypt(String texto) {
 		try {
@@ -86,12 +105,16 @@ public class AESUtil {
 	}
 
 	/**
-	 * Descifra un texto generado por {@link #encrypt(String)}.
+	 * Descifra un texto previamente generado mediante el método
+	 * {@link #encrypt(String)}. Recupera el vector de inicialización y utiliza
+	 * la clave configurada para obtener el contenido original.
 	 *
-	 * @param encrypted Base64 de (IV + texto cifrado).
-	 * @return Texto plano descifrado.
-	 * @throws IllegalStateException si el texto fue alterado, no corresponde a
-	 *         la clave o la clave es invalida.
+	 * @param encrypted Cadena codificada en Base64 que contiene el IV y el
+	 *                  contenido cifrado.
+	 * @return Texto plano obtenido después del descifrado.
+	 * @throws IllegalStateException si el contenido cifrado es inválido,
+	 *         fue alterado, no corresponde a la clave configurada o ocurre
+	 *         un error durante el descifrado.
 	 */
 	public static String decrypt(String encrypted) {
 		try {
@@ -115,12 +138,14 @@ public class AESUtil {
 	}
 
 	/**
-	 * Genera un hash del contenido usando el algoritmo especificado.
+	 * Genera un hash del contenido recibido utilizando el algoritmo indicado.
+	 * El resultado se representa mediante una cadena hexadecimal.
 	 *
-	 * @param content Texto a convertir en hash.
-	 * @param algorithm Nombre del algoritmo (p. ej. "MD5", "SHA-1", "SHA-256").
-	 * @return Representacion hexadecimal del hash, o cadena vacia si el
-	 *         algoritmo no existe.
+	 * @param content Texto que se desea convertir en hash.
+	 * @param algorithm Nombre del algoritmo de hash, por ejemplo MD5, SHA-1
+	 *                  o SHA-256.
+	 * @return Representación hexadecimal del hash generado, o una cadena
+	 *         vacía si el algoritmo especificado no está disponible.
 	 */
 	public static String hash(String content, String algorithm) {
 		try {
@@ -134,45 +159,50 @@ public class AESUtil {
 	}
 
 	/**
-	 * Genera un hash MD5 del contenido (32 caracteres).
-	 * @param content Texto a convertir en hash.
-	 * @return Hash en hexadecimal.
+	 * Genera un hash del contenido utilizando el algoritmo MD5.
+	 *
+	 * @param content Texto que se desea convertir en hash.
+	 * @return Hash MD5 representado en formato hexadecimal.
 	 */
 	public static String hashingToMD5(String content) {
 		return hash(content, "MD5");
 	}
 
 	/**
-	 * Genera un hash SHA-1 del contenido (40 caracteres).
-	 * @param content Texto a convertir en hash.
-	 * @return Hash en hexadecimal.
+	 * Genera un hash del contenido utilizando el algoritmo SHA-1.
+	 *
+	 * @param content Texto que se desea convertir en hash.
+	 * @return Hash SHA-1 representado en formato hexadecimal.
 	 */
 	public static String hashingToSHA1(String content) {
 		return hash(content, "SHA-1");
 	}
 
 	/**
-	 * Genera un hash SHA-256 del contenido (64 caracteres).
-	 * @param content Texto a convertir en hash.
-	 * @return Hash en hexadecimal.
+	 * Genera un hash del contenido utilizando el algoritmo SHA-256.
+	 *
+	 * @param content Texto que se desea convertir en hash.
+	 * @return Hash SHA-256 representado en formato hexadecimal.
 	 */
 	public static String hashingToSHA256(String content) {
 		return hash(content, "SHA-256");
 	}
 
 	/**
-	 * Genera un hash SHA-384 del contenido (96 caracteres).
-	 * @param content Texto a convertir en hash.
-	 * @return Hash en hexadecimal.
+	 * Genera un hash del contenido utilizando el algoritmo SHA-384.
+	 *
+	 * @param content Texto que se desea convertir en hash.
+	 * @return Hash SHA-384 representado en formato hexadecimal.
 	 */
 	public static String hashingToSHA384(String content) {
 		return hash(content, "SHA-384");
 	}
 
 	/**
-	 * Genera un hash SHA-512 del contenido (128 caracteres).
-	 * @param content Texto a convertir en hash.
-	 * @return Hash en hexadecimal.
+	 * Genera un hash del contenido utilizando el algoritmo SHA-512.
+	 *
+	 * @param content Texto que se desea convertir en hash.
+	 * @return Hash SHA-512 representado en formato hexadecimal.
 	 */
 	public static String hashingToSHA512(String content) {
 		return hash(content, "SHA-512");

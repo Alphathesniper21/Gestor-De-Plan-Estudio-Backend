@@ -1,5 +1,5 @@
 /**
- * Paquete de servicios del aplicativo.
+ * Paquete que contiene los servicios del aplicativo.
  */
 package co.edu.unbosque.sdgh.service;
 
@@ -7,12 +7,14 @@ import java.time.Duration;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import co.edu.unbosque.sdgh.dto.SesionDTO;
+import co.edu.unbosque.sdgh.entity.ClaveParametro;
 import co.edu.unbosque.sdgh.entity.Grupo;
 import co.edu.unbosque.sdgh.entity.Materia;
 import co.edu.unbosque.sdgh.entity.Sesion;
@@ -26,64 +28,48 @@ import co.edu.unbosque.sdgh.repository.MateriaRepository;
 import co.edu.unbosque.sdgh.repository.SesionRepository;
 
 /**
- * Servicio encargado de ubicar, mover y quitar las sesiones de los grupos en la
- * grilla semanal (RF3). Valida la franja permitida (RF4), la pausa de 12:00 a
- * 13:00 (RF5), el cruce entre cursos del mismo semestre y bloque de grupos
- * (RF6) y el limite de sesiones del curso (RF7). La advertencia por dias
- * consecutivos (RF8) no rechaza la sesion y se consulta aparte. Las
- * validaciones se hacen al inicio de cada metodo y lanzan excepciones
- * personalizadas que son capturadas en el controlador.
+ * Servicio encargado de gestionar la ubicacion, modificacion y eliminacion
+ * de las sesiones de los grupos en la grilla semanal (RF-3 y RF-8). Valida
+ * la franja institucional, los horarios de pausa, los cruces entre cursos
+ * del mismo semestre y bloque de grupos, y el limite de sesiones de cada
+ * materia (RF-4, RF-5, RF-6 y RF-7). Los valores de franja y pausa se consultan
+ * desde los parametros del sistema durante cada validacion (RF-9, RNF-3).
+ * Toda modificacion de una sesion establece el horario como no publicado (RF-12).
+ *
+ * @author Sebastian Toyo
  */
 @Service
 public class SesionService implements CRUDOperation<SesionDTO> {
 
 	/**
-	 * Duracion de cada sesion en minutos (2 horas) (RF3).
+	 * Duracion obligatoria de cada sesion en minutos, equivalente a dos horas
+	 * (RF-3).
 	 */
 	private static final long DURACION_SESION_MINUTOS = 120;
 
 	/**
-	 * Hora de apertura de lunes a sabado (07:00) (RF4).
-	 */
-	private static final LocalTime HORA_INICIO_JORNADA = LocalTime.of(7, 0);
-
-	/**
-	 * Hora de cierre de lunes a viernes (22:00) (RF4).
-	 */
-	private static final LocalTime HORA_FIN_LUNES_VIERNES = LocalTime.of(22, 0);
-
-	/**
-	 * Hora de cierre los sabados (13:00) (RF4).
-	 */
-	private static final LocalTime HORA_FIN_SABADO = LocalTime.of(13, 0);
-
-	/**
-	 * Inicio de la pausa (12:00) (RF5).
-	 */
-	private static final LocalTime HORA_INICIO_PAUSA = LocalTime.of(12, 0);
-
-	/**
-	 * Fin de la pausa (13:00) (RF5).
-	 */
-	private static final LocalTime HORA_FIN_PAUSA = LocalTime.of(13, 0);
-
-	/**
-	 * Repositorio de sesiones.
+	 * Repositorio encargado de las operaciones de persistencia de sesiones.
 	 */
 	@Autowired
 	private SesionRepository sesionRepo;
 
 	/**
-	 * Repositorio de grupos.
+	 * Repositorio encargado de consultar los grupos registrados.
 	 */
 	@Autowired
 	private GrupoRepository grupoRepo;
 
 	/**
-	 * Repositorio de materias.
+	 * Repositorio encargado de consultar las materias registradas.
 	 */
 	@Autowired
 	private MateriaRepository materiaRepo;
+
+	/**
+	 * Servicio encargado de consultar los valores de franja y pausa del sistema.
+	 */
+	@Autowired
+	private ParametroService parametroServ;
 
 	/**
 	 * Mapper utilizado para convertir entidades en DTO y viceversa.
@@ -98,18 +84,21 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	}
 
 	/**
-	 * Metodo que ubica una sesion en la grilla validando RF3 a RF7. El dia es un
-	 * numero de 1 (lunes) a 6 (sabado).
-	 * @param newData DTO con la sesion a crear.
+	 * Metodo que crea una nueva sesion en la grilla semanal validando las
+	 * restricciones de horario, duracion, pausa, cruces y limite de sesiones
+	 * correspondientes a los requisitos RF-3 a RF-7. El dia se representa
+	 * mediante un numero entre 1 (lunes) y 6 (sabado).
+	 *
+	 * @param newData DTO con la informacion de la sesion que se desea crear.
 	 * @return Retorna 0 si la sesion fue creada correctamente.
 	 * @throws DatosInvalidosException si los datos son nulos o estan incompletos.
-	 * @throws RecursoNoEncontradoException si el grupo o su curso no existen.
-	 * @throws FranjaInstitucionalInvalidaException si incumple la duracion, la
-	 *         franja o la pausa (RF3, RF4, RF5).
-	 * @throws CruceHorarioException si se cruza con otra sesion del mismo
-	 *         semestre y bloque (RF6).
+	 * @throws RecursoNoEncontradoException si el grupo o la materia no existen.
+	 * @throws FranjaInstitucionalInvalidaException si se incumple la duracion,
+	 *         la franja institucional o el horario de pausa (RF-3, RF-4, RF-5).
+	 * @throws CruceHorarioException si la sesion se cruza con otra del mismo
+	 *         grupo o de otro curso del mismo semestre y bloque (RF-6).
 	 * @throws LimiteSesionesExcedidoException si el grupo ya tiene todas las
-	 *         sesiones de su curso (RF7).
+	 *         sesiones semanales permitidas para su materia (RF-7).
 	 */
 	@Override
 	public int create(SesionDTO newData) {
@@ -124,7 +113,7 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 			throw new DatosInvalidosException("La hora de inicio y la hora de fin son obligatorias");
 		}
 
-		Grupo grupo = grupoRepo.findById(newData.getId()).orElseThrow(
+		Grupo grupo = grupoRepo.findById(newData.getGrupoId()).orElseThrow(
 				() -> new RecursoNoEncontradoException("No existe un grupo con el id " + newData.getGrupoId()));
 		Materia materia = materiaRepo.findById(grupo.getMateriaId()).orElseThrow(
 				() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + grupo.getMateriaId()));
@@ -132,6 +121,13 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 		LocalTime inicio = newData.getHoraInicio();
 		LocalTime fin = newData.getHoraFin();
 		int dia = newData.getDiaSemana();
+
+		Map<String, String> p = parametroServ.obtenerMapa();
+		LocalTime horaInicioJornada = LocalTime.parse(p.get(ClaveParametro.HORA_INICIO_JORNADA));
+		LocalTime horaFinSemana = LocalTime.parse(p.get(ClaveParametro.HORA_FIN_SEMANA));
+		LocalTime horaFinSabado = LocalTime.parse(p.get(ClaveParametro.HORA_FIN_SABADO));
+		LocalTime horaInicioPausa = LocalTime.parse(p.get(ClaveParametro.PAUSA_INICIO));
+		LocalTime horaFinPausa = LocalTime.parse(p.get(ClaveParametro.PAUSA_FIN));
 
 		if (!inicio.isBefore(fin)) {
 			throw new FranjaInstitucionalInvalidaException(
@@ -146,20 +142,20 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 			throw new FranjaInstitucionalInvalidaException(
 					"El dia " + dia + " no es valido. Use de 1 (lunes) a 6 (sabado)");
 		}
-		if (inicio.isBefore(HORA_INICIO_JORNADA)) {
-			throw new FranjaInstitucionalInvalidaException("Las clases inician a partir de las 07:00");
+		if (inicio.isBefore(horaInicioJornada)) {
+			throw new FranjaInstitucionalInvalidaException("Las clases inician a partir de las " + horaInicioJornada);
 		}
-		if (dia <= 5 && fin.isAfter(HORA_FIN_LUNES_VIERNES)) {
-			throw new FranjaInstitucionalInvalidaException(
-					"De lunes a viernes las clases deben estar entre las 07:00 y las 22:00");
+		if (dia <= 5 && fin.isAfter(horaFinSemana)) {
+			throw new FranjaInstitucionalInvalidaException("De lunes a viernes las clases deben estar entre las "
+					+ horaInicioJornada + " y las " + horaFinSemana);
 		}
-		if (dia == 6 && fin.isAfter(HORA_FIN_SABADO)) {
+		if (dia == 6 && fin.isAfter(horaFinSabado)) {
 			throw new FranjaInstitucionalInvalidaException(
-					"Los sabados las clases deben estar entre las 07:00 y las 13:00");
+					"Los sabados las clases deben estar entre las " + horaInicioJornada + " y las " + horaFinSabado);
 		}
-		if (inicio.isBefore(HORA_FIN_PAUSA) && HORA_INICIO_PAUSA.isBefore(fin)) {
+		if (inicio.isBefore(horaFinPausa) && horaInicioPausa.isBefore(fin)) {
 			throw new FranjaInstitucionalInvalidaException(
-					"No se permite programar clases entre las 12:00 y las 13:00");
+					"No se permite programar clases entre las " + horaInicioPausa + " y las " + horaFinPausa);
 		}
 
 		List<Sesion> sesionesGrupo = sesionRepo.findByGrupoId(grupo.getId());
@@ -193,20 +189,23 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 						&& existente.getHoraInicio().isBefore(fin)) {
 					throw new CruceHorarioException("La sesion se cruza con el curso " + materiaOtro.getNombre()
 							+ " (semestre " + materia.getSemestre() + ", bloque " + grupo.getNumeroGrupo()
-							+ ") el dia " + dia + " (" + existente.getHoraInicio() + " - " + existente.getHoraFin()
-							+ ")");
+							+ ") el dia " + dia + " (" + existente.getHoraInicio() + " - "
+							+ existente.getHoraFin() + ")");
 				}
 			}
 		}
 
 		Sesion entity = mapper.map(newData, Sesion.class);
 		sesionRepo.save(entity);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
 	/**
-	 * Metodo que obtiene todas las sesiones registradas.
-	 * @return Retorna una lista con todas las sesiones en formato DTO.
+	 * Metodo que obtiene todas las sesiones registradas y convierte sus
+	 * datos al formato DTO.
+	 *
+	 * @return Lista con todas las sesiones registradas en formato DTO.
 	 */
 	@Override
 	public List<SesionDTO> getAll() {
@@ -224,9 +223,11 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	}
 
 	/**
-	 * Metodo que quita una sesion de la grilla, por lo que el grupo queda con una
-	 * sesion pendiente (RF3, RF11).
-	 * @param id Identificador de la sesion a eliminar.
+	 * Metodo que elimina una sesion de la grilla semanal. Al eliminarla,
+	 * el grupo queda con una sesion pendiente y el horario deja de estar
+	 * publicado (RF-8, RF-11, RF-12).
+	 *
+	 * @param id Identificador de la sesion que se desea eliminar.
 	 * @return Retorna 0 si la sesion fue eliminada correctamente.
 	 * @throws DatosInvalidosException si el identificador es nulo.
 	 * @throws RecursoNoEncontradoException si la sesion no existe.
@@ -242,24 +243,26 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una sesion con el id " + id));
 
 		sesionRepo.delete(encontrada);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
 	/**
-	 * Metodo que mueve una sesion a otro dia u hora, validando de nuevo RF3 a
-	 * RF6. El grupo de la sesion no cambia, por lo que el limite de sesiones
-	 * (RF7) no se vuelve a evaluar.
-	 * @param id Identificador de la sesion a mover.
-	 * @param newData DTO con el nuevo dia y las nuevas horas.
+	 * Metodo que actualiza la ubicacion de una sesion en la grilla semanal,
+	 * modificando su dia y horario. Valida nuevamente las restricciones de
+	 * duracion, franja institucional, pausa y cruces de horario (RF-3 a RF-6).
+	 *
+	 * @param id Identificador de la sesion que se desea actualizar.
+	 * @param newData DTO con el nuevo dia y las nuevas horas de la sesion.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el id es nulo o los datos estan
-	 *         incompletos.
-	 * @throws RecursoNoEncontradoException si la sesion, su grupo o su curso no
-	 *         existen.
-	 * @throws FranjaInstitucionalInvalidaException si incumple la duracion, la
-	 *         franja o la pausa (RF3, RF4, RF5).
-	 * @throws CruceHorarioException si se cruza con otra sesion del mismo
-	 *         semestre y bloque (RF6).
+	 * @throws DatosInvalidosException si el id es nulo o los datos son nulos
+	 *         o estan incompletos.
+	 * @throws RecursoNoEncontradoException si la sesion, su grupo o su materia
+	 *         no existen.
+	 * @throws FranjaInstitucionalInvalidaException si se incumple la duracion,
+	 *         la franja institucional o el horario de pausa (RF-3, RF-4, RF-5).
+	 * @throws CruceHorarioException si la sesion se cruza con otra del mismo
+	 *         grupo o de otro curso del mismo semestre y bloque (RF-6).
 	 */
 	@Override
 	public int updateById(Long id, SesionDTO newData) {
@@ -278,7 +281,7 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 			throw new DatosInvalidosException("La hora de inicio y la hora de fin son obligatorias");
 		}
 
-		Grupo grupo = grupoRepo.findById(temp.getId()).orElseThrow(
+		Grupo grupo = grupoRepo.findById(temp.getGrupoId()).orElseThrow(
 				() -> new RecursoNoEncontradoException("No existe un grupo con el id " + temp.getGrupoId()));
 		Materia materia = materiaRepo.findById(grupo.getMateriaId()).orElseThrow(
 				() -> new RecursoNoEncontradoException("No existe una materia con el codigo " + grupo.getMateriaId()));
@@ -286,6 +289,13 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 		LocalTime inicio = newData.getHoraInicio();
 		LocalTime fin = newData.getHoraFin();
 		int dia = newData.getDiaSemana();
+
+		Map<String, String> p = parametroServ.obtenerMapa();
+		LocalTime horaInicioJornada = LocalTime.parse(p.get(ClaveParametro.HORA_INICIO_JORNADA));
+		LocalTime horaFinSemana = LocalTime.parse(p.get(ClaveParametro.HORA_FIN_SEMANA));
+		LocalTime horaFinSabado = LocalTime.parse(p.get(ClaveParametro.HORA_FIN_SABADO));
+		LocalTime horaInicioPausa = LocalTime.parse(p.get(ClaveParametro.PAUSA_INICIO));
+		LocalTime horaFinPausa = LocalTime.parse(p.get(ClaveParametro.PAUSA_FIN));
 
 		if (!inicio.isBefore(fin)) {
 			throw new FranjaInstitucionalInvalidaException(
@@ -300,24 +310,24 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 			throw new FranjaInstitucionalInvalidaException(
 					"El dia " + dia + " no es valido. Use de 1 (lunes) a 6 (sabado)");
 		}
-		if (inicio.isBefore(HORA_INICIO_JORNADA)) {
-			throw new FranjaInstitucionalInvalidaException("Las clases inician a partir de las 07:00");
+		if (inicio.isBefore(horaInicioJornada)) {
+			throw new FranjaInstitucionalInvalidaException("Las clases inician a partir de las " + horaInicioJornada);
 		}
-		if (dia <= 5 && fin.isAfter(HORA_FIN_LUNES_VIERNES)) {
-			throw new FranjaInstitucionalInvalidaException(
-					"De lunes a viernes las clases deben estar entre las 07:00 y las 22:00");
+		if (dia <= 5 && fin.isAfter(horaFinSemana)) {
+			throw new FranjaInstitucionalInvalidaException("De lunes a viernes las clases deben estar entre las "
+					+ horaInicioJornada + " y las " + horaFinSemana);
 		}
-		if (dia == 6 && fin.isAfter(HORA_FIN_SABADO)) {
+		if (dia == 6 && fin.isAfter(horaFinSabado)) {
 			throw new FranjaInstitucionalInvalidaException(
-					"Los sabados las clases deben estar entre las 07:00 y las 13:00");
+					"Los sabados las clases deben estar entre las " + horaInicioJornada + " y las " + horaFinSabado);
 		}
-		if (inicio.isBefore(HORA_FIN_PAUSA) && HORA_INICIO_PAUSA.isBefore(fin)) {
+		if (inicio.isBefore(horaFinPausa) && horaInicioPausa.isBefore(fin)) {
 			throw new FranjaInstitucionalInvalidaException(
-					"No se permite programar clases entre las 12:00 y las 13:00");
+					"No se permite programar clases entre las " + horaInicioPausa + " y las " + horaFinPausa);
 		}
 
 		for (Sesion existente : sesionRepo.findByGrupoId(grupo.getId())) {
-			if (existente.getId() == id.longValue()) { // CAMBIO: intValue() -> longValue()
+			if (existente.getId() == id.longValue()) {
 				continue;
 			}
 			if (existente.getDiaSemana() == dia && inicio.isBefore(existente.getHoraFin())
@@ -343,8 +353,8 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 						&& existente.getHoraInicio().isBefore(fin)) {
 					throw new CruceHorarioException("La sesion se cruza con el curso " + materiaOtro.getNombre()
 							+ " (semestre " + materia.getSemestre() + ", bloque " + grupo.getNumeroGrupo()
-							+ ") el dia " + dia + " (" + existente.getHoraInicio() + " - " + existente.getHoraFin()
-							+ ")");
+							+ ") el dia " + dia + " (" + existente.getHoraInicio() + " - "
+							+ existente.getHoraFin() + ")");
 				}
 			}
 		}
@@ -353,12 +363,14 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 		temp.setHoraInicio(inicio);
 		temp.setHoraFin(fin);
 		sesionRepo.save(temp);
+		parametroServ.marcarPublicado(false);
 		return 0;
 	}
 
 	/**
 	 * Metodo que cuenta la cantidad total de sesiones registradas.
-	 * @return Retorna la cantidad total de sesiones.
+	 *
+	 * @return Cantidad total de sesiones.
 	 */
 	@Override
 	public long count() {
@@ -367,9 +379,10 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	}
 
 	/**
-	 * Metodo que verifica si una sesion existe mediante su identificador.
-	 * @param id Identificador de la sesion a verificar.
-	 * @return Retorna true si la sesion existe o false en caso contrario.
+	 * Metodo que verifica si existe una sesion mediante su identificador.
+	 *
+	 * @param id Identificador de la sesion que se desea verificar.
+	 * @return true si la sesion existe o false en caso contrario.
 	 */
 	@Override
 	public boolean existById(Long id) {
@@ -379,8 +392,9 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 
 	/**
 	 * Metodo que busca una sesion mediante su identificador.
-	 * @param id Identificador de la sesion.
-	 * @return Retorna la sesion en formato DTO.
+	 *
+	 * @param id Identificador de la sesion que se desea consultar.
+	 * @return Informacion de la sesion en formato DTO.
 	 * @throws DatosInvalidosException si el identificador es nulo.
 	 * @throws RecursoNoEncontradoException si la sesion no existe.
 	 */
@@ -397,12 +411,13 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene las sesiones de un grupo.
-	 * @param grupoId Identificador del grupo.
-	 * @return Retorna una lista de sesiones en formato DTO del grupo.
-	 * @throws DatosInvalidosException si el id del grupo no es positivo.
+	 * Metodo que obtiene todas las sesiones asociadas a un grupo especifico.
+	 *
+	 * @param grupoId Identificador del grupo cuyas sesiones se desean consultar.
+	 * @return Lista de sesiones del grupo en formato DTO.
+	 * @throws DatosInvalidosException si el identificador del grupo no es positivo.
 	 */
-	public List<SesionDTO> getByGrupoId(long grupoId) { // CAMBIO: int -> long
+	public List<SesionDTO> getByGrupoId(long grupoId) {
 
 		if (grupoId <= 0) {
 			throw new DatosInvalidosException("El id del grupo debe ser un numero positivo");
@@ -421,14 +436,15 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 	}
 
 	/**
-	 * Metodo que informa las advertencias de un grupo (RF8): no rechaza, solo
-	 * avisa si el grupo tiene sesiones en dias consecutivos. Se llama despues de
-	 * crear o mover una sesion. Si la lista esta vacia, no hay advertencias.
-	 * @param grupoId Identificador del grupo.
-	 * @return Retorna la lista de advertencias.
-	 * @throws DatosInvalidosException si el id del grupo no es positivo.
+	 * Metodo que obtiene advertencias relacionadas con la programacion de
+	 * sesiones de un grupo. Informa si existen sesiones ubicadas en dias
+	 * consecutivos, sin impedir su programacion.
+	 *
+	 * @param grupoId Identificador del grupo que se desea consultar.
+	 * @return Lista de advertencias relacionadas con las sesiones del grupo.
+	 * @throws DatosInvalidosException si el identificador del grupo no es positivo.
 	 */
-	public List<String> obtenerAdvertencias(long grupoId) { // CAMBIO: int -> long
+	public List<String> obtenerAdvertencias(long grupoId) {
 
 		if (grupoId <= 0) {
 			throw new DatosInvalidosException("El id del grupo debe ser un numero positivo");
@@ -440,7 +456,7 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 		for (int i = 0; i < sesiones.size(); i++) {
 			for (int j = i + 1; j < sesiones.size(); j++) {
 				if (Math.abs(sesiones.get(i).getDiaSemana() - sesiones.get(j).getDiaSemana()) == 1) {
-					advertencias.add("ADVERTENCIA RF8 - El grupo " + grupoId
+					advertencias.add("ADVERTENCIA - El grupo " + grupoId
 							+ " tiene sesiones en dias consecutivos (" + sesiones.get(i).getDiaSemana() + " y "
 							+ sesiones.get(j).getDiaSemana() + ")");
 				}
@@ -448,5 +464,32 @@ public class SesionService implements CRUDOperation<SesionDTO> {
 		}
 
 		return advertencias;
+	}
+
+	/**
+	 * Metodo que obtiene las sesiones correspondientes a las materias y grupos
+	 * de un semestre especifico (RF-10).
+	 *
+	 * @param semestre Numero del semestre que se desea consultar, entre 1 y 9.
+	 * @return Lista de sesiones de las materias del semestre indicado en formato DTO.
+	 * @throws DatosInvalidosException si el semestre esta fuera del rango permitido.
+	 */
+	public List<SesionDTO> getBySemestre(int semestre) {
+
+		if (semestre < 1 || semestre > 9) {
+			throw new DatosInvalidosException("El semestre debe estar entre 1 y 9");
+		}
+
+		List<SesionDTO> dtoList = new ArrayList<>();
+
+		for (Materia materia : materiaRepo.findBySemestre(semestre)) {
+			for (Grupo grupo : grupoRepo.findByMateriaId(materia.getId())) {
+				for (Sesion sesion : sesionRepo.findByGrupoId(grupo.getId())) {
+					dtoList.add(mapper.map(sesion, SesionDTO.class));
+				}
+			}
+		}
+
+		return dtoList;
 	}
 }

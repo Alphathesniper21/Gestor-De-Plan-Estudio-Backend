@@ -13,6 +13,22 @@ import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 
+/**
+ * Configuracion de la documentacion OpenAPI (Swagger) del aplicativo.
+ * <p>
+ * Define mediante anotaciones los metadatos de la API (titulo, version y guia
+ * de uso con los roles {@code GESTOR} y {@code CONSULTANTE}) y el esquema de
+ * seguridad {@code bearerAuth} basado en JWT. Adicionalmente registra el bean
+ * {@link OpenAPI} con el esquema de seguridad y respuestas de error
+ * reutilizables (401, 403 y 404). La documentacion es accesible desde la
+ * interfaz de Swagger UI.
+ * </p>
+ *
+ * @author Martín Peña
+ * @version 1.0
+ * @since 1.0
+ * @see co.edu.unbosque.sdgh.controller.AuthController
+ */
 @Configuration
 @OpenAPIDefinition(
 		info = @Info(
@@ -29,8 +45,8 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 						"</ol>" +
 						"<h3>Roles</h3>" +
 						"<ul>" +
-						"  <li><b>ADMINISTRADOR</b>: acceso total</li>" +
-						"  <li><b>USUARIO</b>: puede analizar código y ver sus propios análisis</li>" +
+						"  <li><b>GESTOR</b>: crea, modifica y publica el horario</li>" +
+						"  <li><b>CONSULTANTE</b>: solo consulta el horario</li>" +
 						"</ul>"
 				)
 		)
@@ -42,6 +58,18 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 		description  = "Pega aquí el token obtenido en /auth/login con el prefijo Bearer"
 		)
 public class OpenApiConfig {
+
+	/**
+	 * Construye y registra el bean {@link OpenAPI} con la configuracion de
+	 * seguridad y las respuestas de error reutilizables de la documentacion.
+	 * <p>
+	 * Incluye el esquema de seguridad HTTP Bearer (JWT) {@code bearerAuth} y las
+	 * respuestas {@code UnauthorizedError} (401), {@code ForbiddenError} (403) y
+	 * {@code NotFoundError} (404), cada una con un ejemplo JSON.
+	 * </p>
+	 *
+	 * @return instancia de {@link OpenAPI} configurada para su uso.
+	 */
 	@Bean
 	public OpenAPI customOpenAPI() {
 

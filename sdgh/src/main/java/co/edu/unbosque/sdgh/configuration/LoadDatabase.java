@@ -22,6 +22,13 @@ import co.edu.unbosque.sdgh.repository.UsuarioRepository;
  * con la contrasena codificada con BCrypt. La contrasena por defecto se lee
  * de la propiedad {@code app.default-password}.
  * </p>
+ *
+ * @author Martín Peña
+ * @version 1.0
+ * @since 1.0
+ * @see co.edu.unbosque.sdgh.entity.Usuario
+ * @see co.edu.unbosque.sdgh.entity.RolUsuario
+ * @see co.edu.unbosque.sdgh.repository.UsuarioRepository
  */
 @Configuration
 public class LoadDatabase {
@@ -70,4 +77,4 @@ public class LoadDatabase {
 			}
 		};
 	}
-}
+}	
