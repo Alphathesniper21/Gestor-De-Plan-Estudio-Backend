@@ -5,24 +5,33 @@ import java.util.Objects;
 import co.edu.unbosque.sdgh.entity.RolUsuario;
 
 /**
- * DTO que transporta los datos de un usuario del sistema. La contrasena solo
- * se usa al recibir un registro o un cambio; nunca se devuelve al cliente.
+ * DTO que transporta los datos de un usuario del sistema.
+ * <p>
+ * La contraseña solo se usa al recibir un registro o un cambio; nunca se
+ * devuelve al cliente. El rol determina los permisos del usuario:
+ * {@code GESTOR} puede crear, actualizar y eliminar, mientras que
+ * {@code CONSULTA} solo puede consultar.
+ * </p>
+ *
+ * @author Laura Gomez
+ * @version 1.0
+ * @since 1.0
+ * @see co.edu.unbosque.sdgh.entity.RolUsuario
  */
 public class UsuarioDTO {
 
 	/**
-	 * Codigo unico del usuario.
+	 * Código único del usuario.
 	 */
 	private long id;
-	
+
 	/**
 	 * Nombre completo del usuario.
 	 */
 	private String nombre;
 
-
 	/**
-	 * Correo electronico del usuario.
+	 * Correo electrónico del usuario.
 	 */
 	private String correo;
 
@@ -32,7 +41,7 @@ public class UsuarioDTO {
 	private String username;
 
 	/**
-	 * Contrasena en texto plano. Solo viaja del cliente al servidor.
+	 * Contraseña en texto plano. Solo viaja del cliente al servidor.
 	 */
 	private String password;
 
@@ -41,10 +50,21 @@ public class UsuarioDTO {
 	 */
 	private RolUsuario rol;
 
+	/**
+	 * Constructor vacío requerido para la deserialización y el mapeo de datos.
+	 */
 	public UsuarioDTO() {
-		// TODO Auto-generated constructor stub
 	}
 
+	/**
+	 * Construye un usuario con los datos necesarios para su registro.
+	 *
+	 * @param nombre   nombre completo del usuario
+	 * @param correo   correo electrónico del usuario
+	 * @param username nombre de usuario para el login
+	 * @param password contraseña en texto plano
+	 * @param rol      rol asignado al usuario
+	 */
 	public UsuarioDTO(String nombre, String correo, String username, String password, RolUsuario rol) {
 		super();
 		this.nombre = nombre;
@@ -53,8 +73,6 @@ public class UsuarioDTO {
 		this.password = password;
 		this.rol = rol;
 	}
-
-
 
 	public long getId() {
 		return id;
@@ -104,17 +122,33 @@ public class UsuarioDTO {
 		this.rol = rol;
 	}
 
+	/**
+	 * Representación en texto del usuario con todos sus atributos.
+	 *
+	 * @return cadena descriptiva del usuario
+	 */
 	@Override
 	public String toString() {
 		return "UsuarioDTO [id=" + id + ", nombre=" + nombre + ", correo=" + correo + ", username=" + username
 				+ ", password=" + password + ", rol=" + rol + "]";
 	}
 
+	/**
+	 * Calcula el código hash a partir de todos los atributos del usuario.
+	 *
+	 * @return código hash del objeto
+	 */
 	@Override
 	public int hashCode() {
 		return Objects.hash(correo, Long.valueOf(id), nombre, password, rol, username);
 	}
 
+	/**
+	 * Compara este usuario con otro objeto atributo por atributo.
+	 *
+	 * @param obj objeto a comparar
+	 * @return {@code true} si ambos son {@link UsuarioDTO} con los mismos valores
+	 */
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)

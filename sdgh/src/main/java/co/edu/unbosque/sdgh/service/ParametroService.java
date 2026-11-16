@@ -1,5 +1,5 @@
 /**
- * Paquete de servicios del aplicativo.
+ * Paquete que contiene los servicios del aplicativo.
  */
 package co.edu.unbosque.sdgh.service;
 
@@ -21,18 +21,21 @@ import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.repository.ParametroRepository;
 
 /**
- * Servicio encargado de los parametros configurables del sistema (RF9, RNF3).
- * Los demas servicios leen los valores en cada validacion, de modo que un
- * cambio se aplica sin recompilar ni redesplegar. No implementa CRUDOperation
- * porque los parametros no se crean ni se eliminan: solo se consultan y se
- * actualizan.
+ * Servicio encargado de gestionar los parametros configurables del sistema
+ * (RF9, RNF3). Permite consultar los valores registrados, obtener valores
+ * predeterminados y actualizar los parametros existentes. Los demas servicios
+ * consultan estos valores durante sus validaciones, por lo que los cambios se
+ * aplican sin necesidad de recompilar ni redesplegar el aplicativo.
+ *
+ * @author Sebastian Toyo
  */
 @Service
 public class ParametroService {
 
 	/**
-	 * Unica fuente de los valores iniciales: la usa LoadDatabase para precargar
-	 * la tabla y obtenerMapa() como respaldo si falta una clave.
+	 * Mapa que contiene los valores iniciales de los parametros del sistema.
+	 * Es utilizado por LoadDatabase para precargar la tabla y por obtenerMapa()
+	 * como respaldo cuando falta alguna clave.
 	 */
 	public static final Map<String, String> VALORES_POR_DEFECTO = Map.of(
 			ClaveParametro.HORA_INICIO_JORNADA, "07:00",
@@ -46,7 +49,7 @@ public class ParametroService {
 			ClaveParametro.HORARIO_PUBLICADO, "false");
 
 	/**
-	 * Repositorio de los parametros.
+	 * Repositorio encargado de las operaciones de persistencia de los parametros.
 	 */
 	@Autowired
 	private ParametroRepository parametroRepo;
@@ -58,10 +61,12 @@ public class ParametroService {
 	}
 
 	/**
-	 * Retorna todos los parametros en un mapa clave-valor con una sola consulta.
-	 * Parte de los valores por defecto y los sobrescribe con los de la base, de
-	 * modo que nunca falta una clave (RF9, RNF3).
-	 * @return Retorna el mapa ordenado por clave.
+	 * Metodo que obtiene todos los parametros en un mapa de clave y valor.
+	 * Parte de los valores predeterminados y los sobrescribe con los datos
+	 * almacenados en la base de datos, garantizando que las claves tengan
+	 * un valor disponible (RF9, RNF3).
+	 *
+	 * @return Mapa ordenado que contiene las claves y los valores de los parametros.
 	 */
 	public Map<String, String> obtenerMapa() {
 
@@ -73,8 +78,10 @@ public class ParametroService {
 	}
 
 	/**
-	 * Lista los parametros editables. El estado de publicacion no se incluye.
-	 * @return Retorna la lista de parametros en formato DTO.
+	 * Metodo que obtiene la lista de parametros editables del sistema.
+	 * Excluye el parametro correspondiente al estado de publicacion del horario.
+	 *
+	 * @return Lista de parametros en formato DTO.
 	 */
 	public List<ParametroDTO> getAll() {
 
@@ -88,53 +95,63 @@ public class ParametroService {
 	}
 
 	/**
-	 * Metodo que lee un parametro de tipo hora (HH:mm).
-	 * @param clave Clave del parametro.
-	 * @return Retorna la hora configurada.
+	 * Metodo que consulta un parametro de tipo hora y convierte su valor
+	 * al formato LocalTime.
+	 *
+	 * @param clave Clave del parametro que se desea consultar.
+	 * @return Hora configurada para el parametro.
 	 */
 	public LocalTime getHora(String clave) {
 		return LocalTime.parse(obtenerMapa().get(clave));
 	}
 
 	/**
-	 * Metodo que lee un parametro de tipo entero.
-	 * @param clave Clave del parametro.
-	 * @return Retorna el valor configurado.
+	 * Metodo que consulta un parametro de tipo entero y convierte su valor
+	 * a un numero entero.
+	 *
+	 * @param clave Clave del parametro que se desea consultar.
+	 * @return Valor entero configurado para el parametro.
 	 */
 	public int getEntero(String clave) {
 		return Integer.parseInt(obtenerMapa().get(clave));
 	}
 
 	/**
-	 * Metodo que lee un parametro de tipo decimal.
-	 * @param clave Clave del parametro.
-	 * @return Retorna el valor configurado.
+	 * Metodo que consulta un parametro de tipo decimal y convierte su valor
+	 * a un numero de tipo double.
+	 *
+	 * @param clave Clave del parametro que se desea consultar.
+	 * @return Valor decimal configurado para el parametro.
 	 */
 	public double getDecimal(String clave) {
 		return Double.parseDouble(obtenerMapa().get(clave));
 	}
 
 	/**
-	 * Metodo que calcula el cupo maximo de un grupo: cupo base por (1 mas la
-	 * tolerancia), redondeado hacia abajo (RF2). Con 40 y 0.10 da 44; con 30 da 33.
-	 * @return Retorna el cupo maximo permitido.
+	 * Metodo que calcula el cupo maximo permitido para un grupo a partir del
+	 * cupo base y la tolerancia configurada. El resultado se redondea hacia
+	 * abajo (RF2).
+	 *
+	 * @return Cupo maximo permitido para un grupo.
 	 */
 	public int getCupoMaximo() {
 		return (int) Math.floor(getEntero(ClaveParametro.CUPO_BASE) * (1.0 + getDecimal(ClaveParametro.CUPO_TOLERANCIA)) + 1e-9);
 	}
 
 	/**
-	 * Metodo que indica si el horario esta publicado (RF12).
-	 * @return Retorna true si el horario esta publicado.
+	 * Metodo que consulta el estado de publicacion actual del horario (RF12).
+	 *
+	 * @return true si el horario esta publicado o false en caso contrario.
 	 */
 	public boolean estaPublicado() {
 		return Boolean.parseBoolean(obtenerMapa().get(ClaveParametro.HORARIO_PUBLICADO));
 	}
 
 	/**
-	 * Metodo que marca el horario como publicado o no publicado (RF12). Solo lo
-	 * usan HorarioService al publicar y SesionService cuando el horario cambia.
-	 * @param publicado Nuevo estado.
+	 * Metodo que actualiza el estado de publicacion del horario y almacena
+	 * el nuevo valor en la base de datos (RF12).
+	 *
+	 * @param publicado Estado de publicacion que se desea establecer.
 	 */
 	public void marcarPublicado(boolean publicado) {
 
@@ -145,13 +162,17 @@ public class ParametroService {
 	}
 
 	/**
-	 * Cambia el valor de un parametro validando su formato y su rango (CU06).
-	 * @param clave Clave del parametro.
-	 * @param valor Nuevo valor.
+	 * Metodo que actualiza el valor de un parametro despues de validar su
+	 * formato y rango permitido (CU06). No permite modificar directamente
+	 * el parametro correspondiente al estado de publicacion.
+	 *
+	 * @param clave Clave del parametro que se desea actualizar.
+	 * @param valor Nuevo valor que se asignara al parametro.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el valor es vacio, no tiene el formato
-	 *         esperado o esta fuera de rango, o si la clave es la de publicacion.
-	 * @throws RecursoNoEncontradoException si la clave no existe.
+	 * @throws DatosInvalidosException si la clave o el valor estan vacios,
+	 *         el formato es incorrecto, el valor esta fuera de rango o se
+	 *         intenta modificar el estado de publicacion.
+	 * @throws RecursoNoEncontradoException si la clave del parametro no existe.
 	 */
 	public int updateByClave(String clave, String valor) {
 

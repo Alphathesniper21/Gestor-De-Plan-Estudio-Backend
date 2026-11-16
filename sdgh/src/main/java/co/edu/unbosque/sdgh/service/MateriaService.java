@@ -1,5 +1,5 @@
 /**
- * Paquete de servicios del aplicativo.
+ * Paquete que contiene los servicios del aplicativo.
  */
 package co.edu.unbosque.sdgh.service;
 
@@ -24,48 +24,59 @@ import co.edu.unbosque.sdgh.repository.MateriaRepository;
 import co.edu.unbosque.sdgh.repository.SesionRepository;
 
 /**
- * Servicio encargado de gestionar las operaciones CRUD de las materias del plan
- * de estudios (CU02 - RF01, RF26). Las validaciones se hacen al inicio de cada
- * metodo y lanzan excepciones personalizadas que son capturadas en el
- * controlador.
+ * Servicio encargado de gestionar las operaciones CRUD de las materias del
+ * plan de estudios (CU02 - RF01, RF26). Realiza validaciones sobre los datos
+ * obligatorios, la unicidad de los registros, el semestre, los creditos y las
+ * horas de cada materia. Las validaciones se realizan al inicio de cada metodo
+ * y utilizan excepciones personalizadas que son capturadas en el controlador.
+ *
+ * @author Sebastian Toyo
  */
 @Service
 public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
-	 * Semestre minimo del plan de estudios.
+	 * Semestre minimo permitido dentro del plan de estudios.
 	 */
 	private static final int SEMESTRE_MINIMO = 1;
 
 	/**
-	 * Semestre maximo del plan de estudios (Ing. de Sistemas SNIES 4952).
+	 * Semestre maximo permitido dentro del plan de estudios (Ing. de Sistemas SNIES 4952).
 	 */
 	private static final int SEMESTRE_MAXIMO = 9;
 
 	/**
-	 * Numero de sesiones minimas.
+	 * Numero minimo de sesiones semanales que debe tener una materia.
 	 */
 	private static final int SESIONES_MINIMAS = 1;
-	
-	
+
 	/**
-	 * Horas por sesion.
+	 * Cantidad de horas que debe durar cada sesion de una materia.
 	 */
 	private static final int HORAS_POR_SESION = 2;
-	
-	
+
 	/**
 	 * Repositorio encargado de las operaciones de persistencia de materias.
 	 */
 	@Autowired
 	private MateriaRepository materiaRepo;
-	
+
+	/**
+	 * Repositorio encargado de consultar y gestionar los grupos asociados
+	 * a las materias.
+	 */
 	@Autowired
 	private GrupoRepository grupoRepo;
-	
+
+	/**
+	 * Servicio encargado de consultar y actualizar los parametros del sistema.
+	 */
 	@Autowired
 	private ParametroService parametroServ;
-	
+
+	/**
+	 * Repositorio encargado de consultar las sesiones asociadas a los grupos.
+	 */
 	@Autowired
 	private SesionRepository sesionRepo;
 
@@ -82,13 +93,15 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que crea una nueva materia validando los datos obligatorios y la
-	 * unicidad de id y nombre (CU02 / RF01).
-	 * @param newData DTO con la informacion de la materia a crear.
+	 * Metodo que crea una nueva materia validando los datos obligatorios,
+	 * la unicidad del codigo y del nombre, el semestre, los creditos y las
+	 * horas permitidas (CU02 / RF01).
+	 *
+	 * @param newData DTO con la informacion de la materia que se desea crear.
 	 * @return Retorna 0 si la materia fue creada correctamente.
-	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos o
-	 *         fuera de rango.
-	 * @throws RecursoDuplicadoException si el id o el nombre ya existen.
+	 * @throws DatosInvalidosException si los datos son nulos, estan incompletos
+	 *         o se encuentran fuera de los rangos permitidos.
+	 * @throws RecursoDuplicadoException si el codigo o el nombre ya existen.
 	 */
 	@Override
 	public int create(MateriaDTO newData) {
@@ -139,8 +152,10 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene todas las materias registradas (RF26).
-	 * @return Retorna una lista con todas las materias en formato DTO.
+	 * Metodo que obtiene todas las materias registradas y convierte sus
+	 * datos al formato DTO (RF26).
+	 *
+	 * @return Lista con todas las materias registradas en formato DTO.
 	 */
 	@Override
 	public List<MateriaDTO> getAll() {
@@ -157,30 +172,15 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		return dtoList;
 	}
 
-//	/**
-//	 * Metodo que elimina una materia mediante su identificador (codigo) recibido
-//	 * como Integer (RF26).
-//	 * @param id id de la materia a eliminar.
-//	 * @return Retorna 0 si la materia fue eliminada correctamente.
-//	 * @throws DatosInvalidosException si el identificador es nulo.
-//	 * @throws RecursoNoEncontradoException si la materia no existe.
-//	 */
-//	@Override
-//	public int deleteById(Long id) {
-//
-//		if (id == null) {
-//			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
-//		}
-//
-//		return deleteByCodigo(id.longValue());
-//	}
+
 
 	/**
-	 * Metodo que elimina una materia mediante su codigo unico de tipo Long (RF26).
-	 * @param codigo Codigo unico de la materia a eliminar.
+	 	 *
+	 * @param id Identificador de la materia que se desea eliminar.
 	 * @return Retorna 0 si la materia fue eliminada correctamente.
-	 * @throws DatosInvalidosException si el codigo es nulo.
-	 * @throws RecursoNoEncontradoException si la materia nidte.
+	 * @throws DatosInvalidosException si el identificador es nulo o la materia
+	 *         tiene grupos asociados.
+	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	@Override
 	public int deleteById(Long id) {
@@ -199,27 +199,30 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		parametroServ.marcarPublicado(false);
 		return 0;
 	}
-	
+
 	/**
-	 * Metodo que actualiza una materia mediante su id unico de tipo Long (CU02 / RF26).
-	 * @param id de la materia a actualizar.
+	 	 *
+	 * @param id Identificador de la materia que se desea actualizar.
 	 * @param newData DTO con la nueva informacion de la materia.
 	 * @return Retorna 0 si la actualizacion fue exitosa.
-	 * @throws DatosInvalidosException si el id es nulo o los datos nuevos son
-	 *         invalidos o estan incompletos.
+	 * @throws DatosInvalidosException si el id es nulo, los datos son invalidos
+	 *         o existen restricciones por grupos y sesiones asignadas.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
-	 * @throws RecursoDuplicadoException si el nombre ya pertenece a otra materia.
+	 * @throws RecursoDuplicadoException si el codigo o nombre ya pertenece a
+	 *         otra materia.
+	 * @throws LimiteSesionesExcedidoException si algun grupo tiene mas sesiones
+	 *         asignadas que las permitidas por las nuevas horas de la materia.
 	 */
 	@Override
 	public int updateById(Long id, MateriaDTO newData) {
-		
+
 		if (id == null) {
 			throw new DatosInvalidosException("El id de la materia no puede ser nulo");
 		}
 
 		Materia temp = materiaRepo.findById(id)
 				.orElseThrow(() -> new RecursoNoEncontradoException("No existe una materia con el id " + id));
-		
+
 		if (newData == null) {
 			throw new DatosInvalidosException("Los datos de la materia no pueden ser nulos");
 		}
@@ -261,7 +264,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		if (porNombre.isPresent() && porNombre.get().getId() != id.longValue()) {
 			throw new RecursoDuplicadoException("Ya existe otra materia con el nombre " + nombre);
 		}
-		
+
 		if (newData.getSemestre() != temp.getSemestre()) {
 			for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
 				if (!sesionRepo.findByGrupoId(grupo.getId()).isEmpty()) {
@@ -269,7 +272,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 				}
 			}
 		}
-		
+
 		for (Grupo grupo : grupoRepo.findByMateriaId(id)) {
 			int asignadas = sesionRepo.findByGrupoId(grupo.getId()).size();
 			if (asignadas > sesiones) {
@@ -278,7 +281,7 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 						+ ". Quite sesiones antes de reducir las horas");
 			}
 		}
-		
+
 		temp.setCodigo(newData.getCodigo());
 		temp.setNombre(nombre);
 		temp.setSemestre(newData.getSemestre());
@@ -292,7 +295,8 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
 	 * Metodo que cuenta la cantidad total de materias registradas.
-	 * @return Retorna la cantidad total de materias.
+	 *
+	 * @return Cantidad total de materias.
 	 */
 	@Override
 	public long count() {
@@ -300,37 +304,26 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 		return materiaRepo.count();
 	}
 
-	/**
-	 * Metodo que verifica si una materia existe mediante su identificador (id)
-	 * recibido como Integer.
-	 * @param id id de la materia a verificar.
-	 * @return Retorna true si la materia existe o false en caso contrario.
-	 */
-//	@Override
-//	public boolean exist(Long id) {
-//
-//		if (id == null) {
-//			return false;
-//		}
-//
-//		return existByCodigo(id.longValue());
-//	}
+	
 
 	/**
-	 * Metodo que verifica si una materia existe mediante su codigo de tipo Long.
-	 * @param codigo Codigo unico de la materia a verificar.
-	 * @return Retorna true si la materia existe o false en caso contrario.
+	 * Metodo que verifica si una materia existe mediante su identificador
+	 * de tipo Long.
+	 *
+	 * @param id Identificador de la materia que se desea verificar.
+	 * @return true si la materia existe o false en caso contrario.
 	 */
 	@Override
 	public boolean existById(Long id) {
-		
+
 		return id != null && materiaRepo.existsById(id);
 	}
 
 	/**
-	 * Metodo que busca una materia mediante su codigo unico.
-	 * @param codigo Codigo de la materia.
-	 * @return Retorna la materia en formato DTO.
+	 * Metodo que busca una materia mediante su identificador.
+	 *
+	 * @param id Identificador de la materia que se desea consultar.
+	 * @return Informacion de la materia en formato DTO.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
 	public MateriaDTO getById(long id) {
@@ -343,8 +336,9 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
 	 * Metodo que busca una materia mediante su nombre exacto.
-	 * @param nombre Nombre de la materia.
-	 * @return Retorna la materia en formato DTO.
+	 *
+	 * @param nombre Nombre de la materia que se desea consultar.
+	 * @return Informacion de la materia en formato DTO.
 	 * @throws DatosInvalidosException si el nombre es nulo o esta vacio.
 	 * @throws RecursoNoEncontradoException si la materia no existe.
 	 */
@@ -361,10 +355,12 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene todas las materias correspondientes a un semestre especifico (1 a 9).
-	 * @param semestre Numero de semestre.
-	 * @return Retorna una lista de materias en formato DTO del semestre indicado.
-	 * @throws DatosInvalidosException si el semestre esta fuera del rango 1 a 9.
+	 * Metodo que obtiene todas las materias correspondientes a un semestre
+	 * especifico dentro del rango permitido.
+	 *
+	 * @param semestre Numero del semestre que se desea consultar.
+	 * @return Lista de materias del semestre indicado en formato DTO.
+	 * @throws DatosInvalidosException si el semestre esta fuera del rango permitido.
 	 */
 	public List<MateriaDTO> getBySemestre(int semestre) {
 
@@ -386,10 +382,12 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 	}
 
 	/**
-	 * Metodo que obtiene las materias filtradas segun si son correlativas (tienen
-	 * prerrequisito) o no.
-	 * @param correlativa true para materias correlativas, false en caso contrario.
-	 * @return Retorna una lista de materias en formato DTO que cumplen el filtro.
+	 * Metodo que obtiene las materias filtradas segun su condicion de
+	 * correlativa, es decir, si tienen prerrequisito o no.
+	 *
+	 * @param correlativa true para consultar materias correlativas o false
+	 *                    para consultar materias no correlativas.
+	 * @return Lista de materias que cumplen el filtro en formato DTO.
 	 */
 	public List<MateriaDTO> getByCorrelativa(boolean correlativa) {
 
@@ -404,11 +402,12 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 		return dtoList;
 	}
-	
+
 	/**
 	 * Metodo que busca una materia mediante su codigo institucional.
-	 * @param codigo Codigo de la materia.
-	 * @return Retorna la materia en formato DTO.
+	 *
+	 * @param codigo Codigo institucional de la materia que se desea consultar.
+	 * @return Informacion de la materia en formato DTO.
 	 * @throws RecursoNoEncontradoException si no existe una materia con ese codigo.
 	 */
 	public MateriaDTO getByCodigo(long codigo) {
@@ -421,10 +420,12 @@ public class MateriaService implements CRUDOperation<MateriaDTO> {
 
 	/**
 	 * Metodo que elimina una materia mediante su codigo institucional.
-	 * @param codigo Codigo de la materia a eliminar.
+	 * No permite eliminarla si tiene grupos asociados.
+	 *
+	 * @param codigo Codigo institucional de la materia que se desea eliminar.
 	 * @return Retorna 0 si la materia fue eliminada correctamente.
 	 * @throws RecursoNoEncontradoException si no existe una materia con ese codigo.
-	 * @throws DatosInvalidosException si la materia tiene grupos.
+	 * @throws DatosInvalidosException si la materia tiene grupos asociados.
 	 */
 	public int deleteByCodigo(long codigo) {
 
