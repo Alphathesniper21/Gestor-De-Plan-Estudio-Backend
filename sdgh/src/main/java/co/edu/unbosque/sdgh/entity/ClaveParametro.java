@@ -1,39 +1,88 @@
 package co.edu.unbosque.sdgh.entity;
 
 /**
- * Claves de los parametros del sistema (RF9). Se usan como constantes para que
- * un error de escritura en una clave lo detecte el compilador.
+ * Clase que contiene las claves constantes utilizadas para identificar
+ * los parámetros configurables del sistema.
+ *
+ * Estas constantes permiten centralizar los nombres de los parámetros
+ * relacionados con los horarios, las pausas, los cupos de los grupos
+ * y la publicación del horario, evitando errores de escritura.
+ *
+ * Hace parte de los requerimientos funcionales RF2, RF4, RF5, RF7, RF9 y RF12.
+ *
+ * @author Laura Gomez
+ * @version 1.0
+ * @since 1.0
+ * @see Parametro
  */
 public final class ClaveParametro {
 
-	/** Hora de apertura de lunes a sabado (RF4). */
-	public static final String HORA_INICIO_JORNADA = "hora.inicio.jornada";
+    /**
+     * Clave que identifica la hora de apertura de la jornada de lunes a sábado.
+     * Corresponde al requerimiento funcional RF4.
+     */
+    public static final String HORA_INICIO_JORNADA = "hora.inicio.jornada";
 
-	/** Hora de cierre de lunes a viernes (RF4). */
-	public static final String HORA_FIN_SEMANA = "hora.fin.semana";
+    /**
+     * Clave que identifica la hora de cierre de la jornada de lunes a viernes.
+     * Corresponde al requerimiento funcional RF4.
+     */
+    public static final String HORA_FIN_SEMANA = "hora.fin.semana";
 
-	/** Hora de cierre del sabado (RF4). */
-	public static final String HORA_FIN_SABADO = "hora.fin.sabado";
+    /**
+     * Clave que identifica la hora de cierre de la jornada del sábado.
+     * Corresponde al requerimiento funcional RF4.
+     */
+    public static final String HORA_FIN_SABADO = "hora.fin.sabado";
 
-	/** Inicio de la pausa del mediodia (RF5). */
-	public static final String PAUSA_INICIO = "pausa.inicio";
+    /**
+     * Clave que identifica la hora de inicio de la pausa del mediodía.
+     * Corresponde al requerimiento funcional RF5.
+     */
+    public static final String PAUSA_INICIO = "pausa.inicio";
 
-	/** Fin de la pausa del mediodia (RF5). */
-	public static final String PAUSA_FIN = "pausa.fin";
+    /**
+     * Clave que identifica la hora de finalización de la pausa del mediodía.
+     * Corresponde al requerimiento funcional RF5.
+     */
+    public static final String PAUSA_FIN = "pausa.fin";
 
-	/** Cupo base de un grupo antes de la tolerancia (RF2). */
-	public static final String CUPO_BASE = "cupo.base";
+    /**
+     * Clave que identifica el cupo base establecido para cada grupo,
+     * antes de aplicar la tolerancia permitida.
+     * Corresponde al requerimiento funcional RF2.
+     */
+    public static final String CUPO_BASE = "cupo.base";
 
-	/** Tolerancia sobre el cupo base, entre 0 y 1 (RF2). */
-	public static final String CUPO_TOLERANCIA = "cupo.tolerancia";
+    /**
+     * Clave que identifica el porcentaje de tolerancia aplicado al cupo base.
+     * Su valor debe encontrarse entre 0 y 1.
+     * Corresponde al requerimiento funcional RF2.
+     */
+    public static final String CUPO_TOLERANCIA = "cupo.tolerancia";
 
-	/** Maximo de sesiones semanales de un curso (RF1, RF7). */
-	public static final String SESIONES_MAXIMAS = "sesiones.maximas";
+    /**
+     * Clave que identifica el número máximo de sesiones semanales
+     * permitidas para un curso.
+     * Corresponde a los requerimientos funcionales RF1 y RF7.
+     */
+    public static final String SESIONES_MAXIMAS = "sesiones.maximas";
 
-	/** Reservada: solo la modifica la publicacion del horario (RF12). */
-	public static final String HORARIO_PUBLICADO = "horario.publicado";
+    /**
+     * Clave reservada para almacenar el estado de publicación del horario.
+     * Este parámetro únicamente debe modificarse desde el proceso
+     * de publicación del horario.
+     * Corresponde al requerimiento funcional RF12.
+     */
+    public static final String HORARIO_PUBLICADO = "horario.publicado";
 
-	public ClaveParametro() {
-		// TODO Auto-generated constructor stub
-	}
+    /**
+     * Constructor de la clase ClaveParametro.
+     *
+     * Se declara privado para impedir la creación de instancias,
+     * ya que esta clase únicamente proporciona constantes estáticas.
+     */
+    private ClaveParametro() {
+        // No se permite crear instancias de esta clase.
+    }
 }

@@ -17,29 +17,34 @@ import co.edu.unbosque.sdgh.exception.RecursoNoEncontradoException;
 import co.edu.unbosque.sdgh.repository.UsuarioRepository;
 
 /**
- * Servicio que gestiona la logica de negocio de los usuarios del sistema:
- * registro, consulta, actualizacion y eliminacion. Las contrasenas se
- * almacenan con hash (RNF de seguridad) y nunca se devuelven en los DTO. Las
- * validaciones se hacen al inicio de cada metodo y lanzan excepciones
- * personalizadas que son capturadas en el controlador.
+ * Servicio que gestiona la lógica de negocio relacionada con los usuarios del
+ * sistema, incluyendo su registro, consulta, actualización y eliminación.
+ * Las contraseñas se almacenan mediante un proceso de hash y nunca se incluyen
+ * en los DTO devueltos. Las validaciones se realizan al inicio de cada método
+ * y utilizan excepciones personalizadas para informar los errores.
+ *
+ * @author Sebastian Toyo
  */
 @Service
 public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 
 	/**
-	 * Repositorio de usuarios.
+	 * Repositorio encargado de realizar las operaciones de persistencia de los
+	 * usuarios.
 	 */
 	@Autowired
 	private UsuarioRepository usuarioRepo;
 
 	/**
-	 * Codificador de contrasenas para el hash.
+	 * Codificador encargado de generar el hash de las contraseñas antes de
+	 * almacenarlas.
 	 */
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
 	/**
-	 * Mapeador de objetos para la conversion entre entidades y DTO.
+	 * Mapeador de objetos utilizado para convertir entre entidades {@link Usuario}
+	 * y objetos {@link UsuarioDTO}.
 	 */
 	@Autowired
 	private ModelMapper mapper;
@@ -53,22 +58,24 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 //	 * Constante de rol de consulta
 //	 */
 //	private final String ROL_CONSULTA= "CONSULTA";
+
 	/**
-	 * Constructor vacio de la clase UsuarioService.
+	 * Constructor vacío de la clase UsuarioService.
 	 */
 	public UsuarioService() {
 	}
 
 	/**
-	 * Registra un nuevo usuario validando datos y unicidad de codigo, correo y
-	 * nombre de usuario. La contrasena se guarda con hash.
+	 * Registra un nuevo usuario validando sus datos y la unicidad del correo
+	 * electrónico y del nombre de usuario. La contraseña se almacena mediante
+	 * un proceso de hash.
 	 *
-	 * @param data DTO con los datos del usuario a registrar.
-	 * @return 0 si se registro con exito.
-	 * @throws DatosInvalidosException si los datos son nulos, incompletos o con
-	 *         formato invalido.
-	 * @throws RecursoDuplicadoException si el codigo, el correo o el nombre de
-	 *         usuario ya existen.
+	 * @param data DTO con los datos del usuario que se desea registrar.
+	 * @return 0 si el registro se realiza correctamente.
+	 * @throws DatosInvalidosException si los datos son nulos, incompletos o
+	 *         presentan un formato inválido.
+	 * @throws RecursoDuplicadoException si el correo electrónico o el nombre
+	 *         de usuario ya se encuentran registrados.
 	 */
 	@Override
 	public int create(UsuarioDTO data) {
@@ -142,9 +149,11 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Obtiene todos los usuarios registrados. La contrasena nunca se incluye.
+	 * Obtiene todos los usuarios registrados en el sistema. Las contraseñas se
+	 * excluyen de los DTO devueltos.
 	 *
-	 * @return Lista de {@link UsuarioDTO}.
+	 * @return Lista de objetos {@link UsuarioDTO} correspondientes a los usuarios
+	 *         registrados, sin incluir sus contraseñas.
 	 */
 	@Override
 	public List<UsuarioDTO> getAll() {
@@ -163,12 +172,13 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Elimina un usuario por su codigo.
+	 * Elimina un usuario a partir de su identificador.
 	 *
-	 * @param id Codigo del usuario a eliminar.
-	 * @return 0 si se elimino correctamente.
-	 * @throws DatosInvalidosException si el codigo es nulo.
-	 * @throws RecursoNoEncontradoException si el usuario no existe.
+	 * @param id Identificador del usuario que se desea eliminar.
+	 * @return 0 si la eliminación se realiza correctamente.
+	 * @throws DatosInvalidosException si el identificador es nulo.
+	 * @throws RecursoNoEncontradoException si no existe un usuario con el
+	 *         identificador indicado.
 	 */
 	@Override
 	public int deleteById(Long id) {
@@ -185,17 +195,20 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Actualiza nombre, correo y rol de un usuario. Si se envia una contrasena
-	 * nueva, se valida y se guarda con hash; si viene vacia, se conserva la
-	 * actual. El nombre de usuario (login) no se modifica.
+	 * Actualiza el nombre, correo electrónico y rol de un usuario. Si se
+	 * proporciona una nueva contraseña, esta se valida y se almacena mediante
+	 * un proceso de hash. Si la contraseña viene vacía, se conserva la actual.
+	 * El nombre de usuario utilizado para iniciar sesión no se modifica.
 	 *
-	 * @param id Codigo del usuario a actualizar.
-	 * @param newData Nuevos datos del usuario.
-	 * @return 0 si se actualizo con exito.
-	 * @throws DatosInvalidosException si el codigo es nulo o los datos nuevos son
-	 *         nulos, incompletos o con formato invalido.
-	 * @throws RecursoNoEncontradoException si el usuario no existe.
-	 * @throws RecursoDuplicadoException si el correo pertenece a otro usuario.
+	 * @param id Identificador del usuario que se desea actualizar.
+	 * @param newData DTO con los nuevos datos del usuario.
+	 * @return 0 si la actualización se realiza correctamente.
+	 * @throws DatosInvalidosException si el identificador es nulo o los nuevos
+	 *         datos son nulos, incompletos o presentan un formato inválido.
+	 * @throws RecursoNoEncontradoException si no existe un usuario con el
+	 *         identificador indicado.
+	 * @throws RecursoDuplicadoException si el correo electrónico pertenece a
+	 *         otro usuario.
 	 */
 	@Override
 	public int updateById(Long id, UsuarioDTO newData) {
@@ -253,6 +266,7 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		temp.setNombre(newData.getNombre().trim());
 		temp.setCorreo(correo);
 		temp.setRol(newData.getRol());
+		temp.setUsername(newData.getUsername());
 
 		if (cambiaContrasena) {
 			temp.setPassword(passwordEncoder.encode(newData.getPassword()));
@@ -263,9 +277,9 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Cuenta el total de usuarios registrados.
+	 * Cuenta la cantidad total de usuarios registrados en el sistema.
 	 *
-	 * @return Cantidad total de usuarios.
+	 * @return Número total de usuarios registrados.
 	 */
 	@Override
 	public long count() {
@@ -274,10 +288,11 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Verifica si existe un usuario con el codigo indicado.
+	 * Verifica si existe un usuario con el identificador indicado.
 	 *
-	 * @param id Codigo del usuario.
-	 * @return true si existe, false en caso contrario.
+	 * @param id Identificador del usuario que se desea consultar.
+	 * @return true si existe un usuario con ese identificador, false en caso
+	 *         contrario o si el identificador es nulo.
 	 */
 	@Override
 	public boolean existById(Long id) {
@@ -286,12 +301,15 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Busca un usuario por su codigo.
+	 * Busca un usuario a partir de su identificador. La contraseña se excluye
+	 * del DTO devuelto.
 	 *
-	 * @param id Codigo del usuario.
-	 * @return {@link UsuarioDTO} del usuario encontrado, sin contrasena.
-	 * @throws DatosInvalidosException si el codigo es nulo.
-	 * @throws RecursoNoEncontradoException si el usuario no existe.
+	 * @param id Identificador del usuario que se desea consultar.
+	 * @return Objeto {@link UsuarioDTO} correspondiente al usuario encontrado,
+	 *         sin incluir su contraseña.
+	 * @throws DatosInvalidosException si el identificador es nulo.
+	 * @throws RecursoNoEncontradoException si no existe un usuario con el
+	 *         identificador indicado.
 	 */
 	public UsuarioDTO getById(Long id) {
 
@@ -308,12 +326,14 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Busca un usuario por su nombre de usuario (login).
+	 * Busca un usuario por su nombre de usuario utilizado para iniciar sesión.
 	 *
-	 * @param username Nombre de usuario.
-	 * @return {@link UsuarioDTO} sin contrasena.
-	 * @throws DatosInvalidosException si el nombre de usuario es nulo o esta vacio.
-	 * @throws RecursoNoEncontradoException si no existe un usuario con ese nombre.
+	 * @param username Nombre de usuario que se desea consultar.
+	 * @return Objeto {@link UsuarioDTO} correspondiente al usuario encontrado,
+	 *         sin incluir su contraseña.
+	 * @throws DatosInvalidosException si el nombre de usuario es nulo o está vacío.
+	 * @throws RecursoNoEncontradoException si no existe un usuario con el nombre
+	 *         de usuario indicado.
 	 */
 	public UsuarioDTO getByUsername(String username) {
 
@@ -330,12 +350,14 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 	}
 
 	/**
-	 * Busca un usuario por su correo electronico.
+	 * Busca un usuario a partir de su correo electrónico.
 	 *
-	 * @param correo Correo institucional del usuario.
-	 * @return {@link UsuarioDTO} sin contrasena.
-	 * @throws DatosInvalidosException si el correo es nulo o esta vacio.
-	 * @throws RecursoNoEncontradoException si no existe un usuario con ese correo.
+	 * @param correo Correo electrónico del usuario que se desea consultar.
+	 * @return Objeto {@link UsuarioDTO} correspondiente al usuario encontrado,
+	 *         sin incluir su contraseña.
+	 * @throws DatosInvalidosException si el correo es nulo o está vacío.
+	 * @throws RecursoNoEncontradoException si no existe un usuario con el correo
+	 *         indicado.
 	 */
 	public UsuarioDTO getByCorreo(String correo) {
 
@@ -350,5 +372,5 @@ public class UsuarioService implements CRUDOperation<UsuarioDTO> {
 		dto.setPassword(null);
 		return dto;
 	}
-	
+
 }

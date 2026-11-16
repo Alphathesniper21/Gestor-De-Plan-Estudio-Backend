@@ -26,6 +26,12 @@ import jakarta.transaction.Transactional;
  * Controlador REST para revisar los pendientes y publicar el horario (CU08,
  * RF11, RF12). Rutas bajo /horario. Las consultas estan abiertas a cualquier
  * usuario autenticado; publicar requiere rol GESTOR.
+ *
+ * @author Martín Peña
+ * @version 1.0
+ * @since 1.0
+ * @see co.edu.unbosque.sdgh.service.HorarioService
+ * @see co.edu.unbosque.sdgh.dto.GrupoDTO
  */
 @RestController
 @RequestMapping("/horario")
@@ -44,6 +50,7 @@ public class HorarioController {
 	/**
 	 * Retorna los grupos con sesiones pendientes (RF11). 202 si hay pendientes,
 	 * 204 si todos los grupos estan completos.
+	 * @return Retorna la lista de grupos pendientes con el codigo HTTP correspondiente.
 	 */
 	@GetMapping("/pendientes")
 	@Operation(summary = "Revisar pendientes", description = "Retorna los grupos que aun no tienen todas las sesiones de su curso (RF11).")
@@ -60,7 +67,22 @@ public class HorarioController {
 	}
 
 	/**
+	 * Retorna las sesiones del horario publicado. 202 con las sesiones si el
+	 * horario esta publicado, 404 con el mensaje de la regla si no lo esta.
+	 * @return Retorna las sesiones publicadas o el mensaje de error, con el codigo HTTP correspondiente.
+	 */
+	@GetMapping("/publicado")
+	public ResponseEntity<Object> obtenerPublicado() {
+		try {
+			return new ResponseEntity<>(horarioServ.getSesionesPublicadas(), HttpStatus.ACCEPTED);
+		} catch (DatosInvalidosException e) {
+			return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+		}
+	}
+	
+	/**
 	 * Publica el horario (RF12). 202 si se publico, 400 si hay grupos pendientes.
+	 * @return Retorna la respuesta HTTP con el mensaje del resultado.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PostMapping("/publicar")
@@ -80,6 +102,7 @@ public class HorarioController {
 
 	/**
 	 * Indica si el horario esta publicado (RF12).
+	 * @return Retorna true si el horario esta publicado, con codigo HTTP 202.
 	 */
 	@GetMapping("/estado")
 	@Operation(summary = "Consultar estado del horario", description = "Retorna true si el horario esta publicado.")

@@ -28,6 +28,12 @@ import jakarta.transaction.Transactional;
  * Controlador REST para consultar y configurar los parametros del sistema (RF9,
  * CU06). Rutas bajo /parametro. Consultar esta abierto a cualquier usuario
  * autenticado; actualizar requiere rol GESTOR.
+ *
+ * @author Martín Peña
+ * @version 1.0
+ * @since 1.0
+ * @see co.edu.unbosque.sdgh.service.ParametroService
+ * @see co.edu.unbosque.sdgh.dto.ParametroDTO
  */
 @RestController
 @RequestMapping("/parametro")
@@ -46,6 +52,7 @@ public class ParametroController {
 	/**
 	 * Retorna los parametros editables con su valor actual. 202 siempre, porque
 	 * los parametros tienen valores por defecto.
+	 * @return Retorna la lista de parametros con codigo HTTP 202.
 	 */
 	@GetMapping("/mostrartodo")
 	@Operation(summary = "Obtener parametros", description = "Retorna las franjas, la pausa, el cupo, la tolerancia y el maximo de sesiones vigentes.")
@@ -58,7 +65,11 @@ public class ParametroController {
 
 	/**
 	 * Cambia el valor de un parametro. El cambio se aplica a la siguiente
-	 * validacion sin recompilar (RNF3).
+	 * validacion sin recompilar (RNF3). 202 si fue exitoso, 404 si el parametro
+	 * no existe, 400 si el valor tiene formato invalido o esta fuera de rango.
+	 * @param clave Clave que identifica el parametro.
+	 * @param valor Nuevo valor del parametro.
+	 * @return Retorna la respuesta HTTP con el mensaje del resultado.
 	 */
 	@PreAuthorize("hasRole('GESTOR')")
 	@PutMapping("/actualizar")
